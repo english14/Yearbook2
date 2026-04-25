@@ -362,6 +362,28 @@ body { font-family: 'Lato', sans-serif; background: #1a1614; color: #e8e2dc; min
               </div>
             </div>
 
+            <!-- GROUP PHOTO PAGE -->
+            <div class="page-creator">
+              <h3>Group Photo Page</h3>
+              <div class="creator-fields">
+                <div>
+                  <label>Course name (shown under photo)</label>
+                  <input type="text" id="group-course-text" placeholder="6to A · Ciencias Sociales">
+                </div>
+                <div>
+                  <label>Class label</label>
+                  <input type="text" id="group-class-label" placeholder="English Class · 2026">
+                </div>
+                <div>
+                  <label>Group photo (horizontal, 4:3)</label>
+                  <div class="upload-area" id="group-upload-area" onclick="document.getElementById('group-photo-input').click()">+ Upload group photo</div>
+                  <input type="file" id="group-photo-input" accept="image/*" style="display:none">
+                  <img class="mini-preview" id="group-mini-preview" src="">
+                </div>
+                <button class="action-btn secondary" onclick="addGroupToSequence()" style="margin-top:4px;">Add Group Page to Book</button>
+              </div>
+            </div>
+
             <!-- FINAL PAGE -->
             <div class="page-creator">
               <h3>Final Page</h3>
@@ -400,28 +422,6 @@ body { font-family: 'Lato', sans-serif; background: #1a1614; color: #e8e2dc; min
                   <img class="mini-preview" id="final-mini-preview" src="">
                 </div>
                 <button class="action-btn secondary" onclick="addFinalToSequence()" style="margin-top:4px;">Add Final Page to Book</button>
-              </div>
-            </div>
-
-            <!-- GROUP PHOTO PAGE -->
-            <div class="page-creator">
-              <h3>Group Photo Page</h3>
-              <div class="creator-fields">
-                <div>
-                  <label>Course name (shown under photo)</label>
-                  <input type="text" id="group-course-text" placeholder="6to A · Ciencias Sociales">
-                </div>
-                <div>
-                  <label>Class label</label>
-                  <input type="text" id="group-class-label" placeholder="English Class · 2026">
-                </div>
-                <div>
-                  <label>Group photo (horizontal, 4:3)</label>
-                  <div class="upload-area" id="group-upload-area" onclick="document.getElementById('group-photo-input').click()">+ Upload group photo</div>
-                  <input type="file" id="group-photo-input" accept="image/*" style="display:none">
-                  <img class="mini-preview" id="group-mini-preview" src="">
-                </div>
-                <button class="action-btn secondary" onclick="addGroupToSequence()" style="margin-top:4px;">Add Group Page to Book</button>
               </div>
             </div>
 
@@ -524,6 +524,8 @@ async function loadSubmissions() {
   }
   updateCounts();
   filterCourse(currentCourse, document.querySelector(`.course-btn[data-course="${currentCourse}"]`));
+  restoreBookState();
+  renderGrid(); // re-render grid so restored selections show checkmarks
 }
 
 function updateCounts() {
@@ -588,6 +590,7 @@ function toggleSelect(id) {
   renderGrid();
   updateSelectedCount();
   updateSequenceFromSelection();
+  saveBookState();
 }
 
 function clearSelection() {
@@ -595,6 +598,7 @@ function clearSelection() {
   renderGrid();
   updateSelectedCount();
   updateSequenceFromSelection();
+  saveBookState();
 }
 
 function updateSelectedCount() {
@@ -660,6 +664,7 @@ function moveSeq(i, dir) {
   if (j<0 || j>=bookSequence.length) return;
   [bookSequence[i], bookSequence[j]] = [bookSequence[j], bookSequence[i]];
   renderSequence();
+  saveBookState();
 }
 function removeSeq(i) {
   const item = bookSequence[i];
@@ -668,6 +673,7 @@ function removeSeq(i) {
   renderSequence();
   renderGrid();
   updateSelectedCount();
+  saveBookState();
 }
 
 // ── COVER CANVAS RENDERING ──────────────────────────────────────
@@ -918,6 +924,7 @@ function addCoverToSequence() {
   renderSequence();
   updateSelectedCount();
   showTab('builder', document.querySelectorAll('.tab-btn')[1]);
+  saveBookState();
 }
 
 function setFinalBg(el, color) {
@@ -956,6 +963,7 @@ function addFinalToSequence() {
   renderSequence();
   updateSelectedCount();
   showTab('builder', document.querySelectorAll('.tab-btn')[1]);
+  saveBookState();
 }
 
 function addGroupToSequence() {
@@ -971,6 +979,7 @@ function addGroupToSequence() {
   renderSequence();
   updateSelectedCount();
   showTab('builder', document.querySelectorAll('.tab-btn')[1]);
+  saveBookState();
 }
 
 // ── DELETE SUBMISSION ─────────────────────────────────────────
@@ -978,17 +987,144 @@ async function deleteSubmission(id) {
   if (!confirm('Delete this student\'s submission? This cannot be undone.')) return;
   if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`, {
         method: 'DELETE',
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
       });
-    } catch(e) { console.error(e); }
+      if (!res.ok) {
+        const errText = await res.text();
+        alert('⚠️ Supabase could not delete this record.\n\nYou likely need to add a DELETE policy in Supabase for the anon role.\n\nDetails: ' + errText);
+        return; // ← do NOT remove from local list if DB delete failed
+      }
+    } catch(e) {
+      alert('Network error while deleting: ' + e.message);
+      return;
+    }
   }
+  // Only remove locally after confirmed DB deletion
   allSubmissions = allSubmissions.filter(s => s.id !== id);
   selectedIds.delete(id);
   updateCounts();
   filterCourse(currentCourse, document.querySelector(`.course-btn[data-course="${currentCourse}"]`));
   updateSequenceFromSelection();
+}
+
+// ── BOOK STATE PERSISTENCE (localStorage) ─────────────────────
+function saveBookState() {
+  try {
+    const state = {
+      selectedIds: [...selectedIds],
+      // Strip the heavy canvas snapshot — cover re-renders automatically on export
+      bookSequence: bookSequence.map(item => {
+        if (item.type === 'cover') {
+          const { snapshot, ...dataWithoutSnapshot } = item.data;
+          return { ...item, data: dataWithoutSnapshot };
+        }
+        return item;
+      }),
+      coverState: {
+        bg:          coverState.bg,
+        year:        coverState.year,
+        digitColors: coverState.digitColors,
+        courseText:  coverState.courseText,
+        classLabel:  coverState.classLabel,
+        teacher:     coverState.teacher,
+        logoDataUrl: coverState.logoImg ? coverState.logoImg.src : null
+      },
+      finalState:       { ...finalState },
+      finalPhotoDataUrl,
+      groupPhotoDataUrl,
+      fields: {
+        coverYear:       document.getElementById('cover-year')?.value        || '',
+        coverCourseText: document.getElementById('cover-course-text')?.value || '',
+        coverClassLabel: document.getElementById('cover-class-label')?.value || '',
+        coverTeacher:    document.getElementById('cover-teacher')?.value     || '',
+        finalMessage:    document.getElementById('final-message')?.value     || '',
+        finalYear:       document.getElementById('final-year')?.value        || '',
+        groupCourseText: document.getElementById('group-course-text')?.value || '',
+        groupClassLabel: document.getElementById('group-class-label')?.value || ''
+      }
+    };
+    localStorage.setItem('yearbookDashboardState', JSON.stringify(state));
+  } catch(e) {
+    // localStorage quota exceeded (usually due to large uploaded photos)
+    console.warn('Book state could not be saved — storage quota exceeded. Uploaded photos are too large.', e);
+  }
+}
+
+function restoreBookState() {
+  try {
+    const raw = localStorage.getItem('yearbookDashboardState');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+
+    // Restore selected IDs
+    if (state.selectedIds) selectedIds = new Set(state.selectedIds);
+
+    // Restore book sequence
+    if (state.bookSequence) bookSequence = state.bookSequence;
+
+    // Restore cover state
+    if (state.coverState) {
+      coverState.bg          = state.coverState.bg          || coverState.bg;
+      coverState.year        = state.coverState.year        || coverState.year;
+      coverState.digitColors = state.coverState.digitColors || coverState.digitColors;
+      coverState.courseText  = state.coverState.courseText  || '';
+      coverState.classLabel  = state.coverState.classLabel  || 'English Class';
+      coverState.teacher     = state.coverState.teacher     || 'Profesora Laura Reyes';
+      if (state.coverState.logoDataUrl) {
+        const img = new Image();
+        img.onload = () => { coverState.logoImg = img; renderCoverPreview(); };
+        img.src = state.coverState.logoDataUrl;
+        const la = document.getElementById('logo-upload-area');
+        if (la) { la.textContent = '✓ Logo restored'; la.classList.add('has-img'); }
+      }
+    }
+
+    // Restore final state
+    if (state.finalState) {
+      finalState.bg        = state.finalState.bg        || finalState.bg;
+      finalState.textColor = state.finalState.textColor || finalState.textColor;
+    }
+
+    // Restore uploaded photos
+    if (state.finalPhotoDataUrl) {
+      finalPhotoDataUrl = state.finalPhotoDataUrl;
+      const ua = document.getElementById('final-upload-area');
+      if (ua) { ua.textContent = '✓ Photo restored'; ua.classList.add('has-img'); }
+      const prev = document.getElementById('final-mini-preview');
+      if (prev) { prev.src = finalPhotoDataUrl; prev.classList.add('visible'); }
+    }
+    if (state.groupPhotoDataUrl) {
+      groupPhotoDataUrl = state.groupPhotoDataUrl;
+      const ua = document.getElementById('group-upload-area');
+      if (ua) { ua.textContent = '✓ Photo restored'; ua.classList.add('has-img'); }
+      const prev = document.getElementById('group-mini-preview');
+      if (prev) { prev.src = groupPhotoDataUrl; prev.classList.add('visible'); }
+    }
+
+    // Restore form field values
+    if (state.fields) {
+      const f = state.fields;
+      const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      set('cover-year',        f.coverYear);
+      set('cover-course-text', f.coverCourseText);
+      set('cover-class-label', f.coverClassLabel);
+      set('cover-teacher',     f.coverTeacher);
+      set('final-message',     f.finalMessage);
+      set('final-year',        f.finalYear);
+      set('group-course-text', f.groupCourseText);
+      set('group-class-label', f.groupClassLabel);
+    }
+
+    // Refresh UI
+    renderCoverPreview();
+    renderSequence();
+    updateSelectedCount();
+
+  } catch(e) {
+    console.warn('Could not restore book state:', e);
+  }
 }
 
 // ── PDF EXPORT ────────────────────────────────────────────────
