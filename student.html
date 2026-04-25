@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yearbook Page Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:wght@300;400&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lato', sans-serif; background: #f0ece8; min-height: 100vh; padding: 24px; color: #2c2420; }
+  h1 { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: 26px; margin-bottom: 20px; color: #2c2420; letter-spacing: 0.05em; }
+  .layout { display: flex; gap: 32px; align-items: flex-start; max-width: 1100px; margin: 0 auto; }
+  .controls { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-group label { font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #888; }
+  .field-group input[type="text"],
+  .field-group textarea { font-family: 'Lato', sans-serif; font-size: 13px; padding: 7px 10px; border: 1px solid #e0dbd5; border-radius: 8px; background: #faf9f7; color: #2c2420; line-height: 1.5; outline: none; transition: border-color 0.15s; width: 100%; }
+  .field-group input[type="text"]:focus,
+  .field-group textarea:focus { border-color: #b5a89a; }
+  .field-group textarea.main-text { resize: vertical; min-height: 130px; }
+  .field-group textarea.closing-input { resize: none; height: 38px; overflow: hidden; }
+  .field-group textarea.over-limit { border-color: #c0392b; background: #fff5f5; }
+  .warning-msg { font-size: 11px; color: #c0392b; font-weight: 700; display: none; padding: 5px 8px; background: #fff0ee; border-radius: 6px; border: 1px solid #f5c0bb; line-height: 1.4; }
+  .warning-msg.visible { display: block; }
+  .upload-btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border: 1.5px dashed #c8bfb5; border-radius: 8px; background: #faf9f7; color: #888; cursor: pointer; font-size: 12px; font-family: 'Lato', sans-serif; transition: all 0.15s; }
+  .upload-btn:hover { background: #f0ece8; border-color: #9a8a7a; color: #2c2420; }
+  .upload-btn.has-img { border-style: solid; border-color: #7aaa7a; color: #3a7a3a; background: #f0faf0; }
+  .divider { border: none; border-top: 1px solid #e8e2dc; margin: 4px 0; }
+  .download-btn { margin-top: 4px; padding: 12px; background: #2c2420; color: #fff; border: none; border-radius: 8px; font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.03em; transition: background 0.15s; }
+  .download-btn:hover { background: #1a1410; }
+  .preview-area { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .preview-label { font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #888; align-self: flex-start; }
+  #canvas-wrap { width: 100%; max-width: 440px; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.13); }
+  canvas { display: block; width: 100%; height: auto; }
+
+  /* ── Portrait mobile: preview on top, controls below ── */
+  /* ── SUCCESS OVERLAY ── */
+  .success-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 100; align-items: center; justify-content: center; }
+  .success-overlay.visible { display: flex; }
+  .success-card { background: #fff; border-radius: 16px; padding: 40px 36px; max-width: 380px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.18); margin: 20px; }
+  .success-card .check { font-size: 52px; margin-bottom: 12px; }
+  .success-card h2 { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: 26px; color: #2c2420; margin-bottom: 10px; }
+  .success-card p { font-size: 13px; color: #777; line-height: 1.6; margin-bottom: 22px; }
+  .success-card button { padding: 10px 28px; background: #2c2420; color: #fff; border: none; border-radius: 8px; font-family: 'Lato', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+  /* ── ERROR BANNER ── */
+  .error-banner { display: none; background: #fff0ee; border: 1px solid #f5c0bb; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #c0392b; line-height: 1.5; }
+  .error-banner.visible { display: block; }
+  /* ── SAVE INDICATOR ── */
+  .save-indicator { font-size: 11px; color: #7aaa7a; font-weight: 700; text-align: center; height: 16px; transition: opacity 0.4s; opacity: 0; }
+  .save-indicator.visible { opacity: 1; }
+  /* ── START SCREEN ── */
+  #start-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #f0ece8; padding: 24px;
+  }
+  .start-card {
+    background: #fff; border-radius: 16px; padding: 48px 40px;
+    max-width: 420px; width: 100%; text-align: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  }
+  .start-card h1 {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-size: 38px; color: #2c2420; letter-spacing: 0.05em;
+    margin-bottom: 6px; line-height: 1.15;
+  }
+  .start-card .profe {
+    font-size: 12px; color: #b0a89a; font-style: italic; margin-bottom: 36px;
+  }
+  .start-card label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: #888; display: block; margin-bottom: 8px; text-align: left;
+  }
+  .start-card select {
+    width: 100%; padding: 10px 14px; border: 1px solid #e0dbd5; border-radius: 8px;
+    font-family: 'Lato', sans-serif; font-size: 14px; color: #2c2420;
+    background: #faf9f7; outline: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 32px; margin-bottom: 24px; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .start-card select:focus { border-color: #b5a89a; }
+  .start-card select.not-selected { color: #aaa; }
+  .start-btn {
+    width: 100%; padding: 13px; background: #2c2420; color: #fff; border: none;
+    border-radius: 8px; font-family: 'Lato', sans-serif; font-size: 15px;
+    font-weight: 700; cursor: pointer; transition: background 0.15s; letter-spacing: 0.03em;
+  }
+  .start-btn:hover:not(:disabled) { background: #1a1410; }
+  .start-btn:disabled { background: #c8bfb5; cursor: not-allowed; }
+
+  /* ── EDITOR back button ── */
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: none; border: 1px solid #e0dbd5; border-radius: 8px;
+    padding: 6px 12px; font-family: 'Lato', sans-serif; font-size: 12px;
+    color: #888; cursor: pointer; transition: all 0.15s; margin-bottom: 8px;
+  }
+  .back-btn:hover { background: #f0ece8; color: #2c2420; border-color: #b5a89a; }
+
+  /* ── EDITOR hidden by default ── */
+  #editor-screen { display: none; }
+
+  @media (max-width: 700px) and (orientation: portrait) {
+    body { padding: 12px 12px 32px; }
+    h1 { font-size: 20px; margin-bottom: 10px; }
+    .layout { flex-direction: column; gap: 16px; }
+    .controls { width: 100%; }
+    .preview-area { order: -1; align-items: center; }
+    /* Scale canvas so it's tall enough to read but leaves room to scroll controls */
+    #canvas-wrap { width: auto; max-width: 100%; }
+    canvas { display: block; height: 44vh; width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── SUCCESS OVERLAY ── -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-card">
+    <div class="check">🎉</div>
+    <h2>You're in the yearbook!</h2>
+    <p>Your page has been downloaded <strong>and</strong> submitted to Profesora Reyes.<br>Well done — you made it!</p>
+    <button onclick="document.getElementById('success-overlay').classList.remove('visible')">Close</button>
+  </div>
+</div>
+
+<!-- ── START SCREEN ── -->
+<div id="start-screen">
+  <div class="start-card">
+    <h1>Yearbook<br>Editor</h1>
+    <p class="profe">Profesora Laura Reyes</p>
+    <label for="course-select">Select your course</label>
+    <select id="course-select" class="not-selected" onchange="onCourseChange(this)">
+      <option value="" disabled selected>— Choose your course —</option>
+      <option value="6to 1ra Ciencias Sociales (TT)">6to 1ra Ciencias Sociales (TT)</option>
+      <option value="6to 1ra Ciencias Naturales (TT)">6to 1ra Ciencias Naturales (TT)</option>
+      <option value="6to A Ciencias Sociales (TM)">6to A Ciencias Sociales (TM)</option>
+      <option value="6to B Ciencias Sociales (TM)">6to B Ciencias Sociales (TM)</option>
+      <option value="6to C Ciencias Naturales (TM)">6to C Ciencias Naturales (TM)</option>
+    </select>
+    <button class="start-btn" id="start-btn" disabled onclick="goToEditor()">Continue →</button>
+  </div>
+</div>
+
+<!-- ── EDITOR SCREEN ── -->
+<div id="editor-screen">
+<div class="layout">
+  <div class="controls">
+    <button class="back-btn" onclick="goBack()">← Go back</button>
+    <h1>Yearbook<br>Editor</h1>
+    <p style="font-size: 11px; color: #b0a89a; margin-top: -10px; font-style: italic;">Profesora Laura Reyes</p>
+    <div class="field-group">
+      <label>Your course</label>
+      <div id="course-display" style="font-size:13px;font-weight:700;color:#2c2420;padding:7px 10px;background:#f0ece8;border-radius:8px;border:1px solid #e0dbd5;"></div>
+    </div>
+
+    <div class="field-group">
+      <label>Main photo (portrait)</label>
+      <button class="upload-btn" id="btn-main" onclick="document.getElementById('inp-main').click()">+ Upload photo</button>
+      <input type="file" id="inp-main" accept="image/*" style="display:none">
+    </div>
+
+    <hr class="divider">
+
+    <div class="field-group"><label>First name</label><input type="text" id="fname" placeholder="Valentina"></div>
+    <div class="field-group"><label>Last name</label><input type="text" id="lname" placeholder="Torres"></div>
+    <div class="field-group">
+      <label>Audio link (Vocaroo, SoundCloud, etc.)</label>
+      <input type="text" id="qrurl" placeholder="https://vocaroo.com/...">
+      <div style="font-size:11px;color:#b0a89a;margin-top:2px;">Paste your audio URL — a QR code will appear on the page automatically.</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="field-group">
+      <label>Main text (Enter for new paragraph)</label>
+      <textarea id="maintext" class="main-text" placeholder="Write your story here. Press Enter for new paragraphs."></textarea>
+      <div class="warning-msg" id="maintext-warning">Your text is too long and will be cut off in the page. Please shorten it.</div>
+    </div>
+
+    <div class="field-group">
+      <label>Closing line (bold · one line only)</label>
+      <textarea id="closing" class="closing-input" placeholder="we survived. I am proud of us."></textarea>
+      <div class="warning-msg" id="closing-warning">Your closing line is too long and will be cut off. Please shorten it.</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="field-group"><label>Polaroid 1</label><button class="upload-btn" id="btn-p1" onclick="document.getElementById('inp-p1').click()">+ Upload photo</button><input type="file" id="inp-p1" accept="image/*" style="display:none"></div>
+    <div class="field-group"><label>Polaroid 2</label><button class="upload-btn" id="btn-p2" onclick="document.getElementById('inp-p2').click()">+ Upload photo</button><input type="file" id="inp-p2" accept="image/*" style="display:none"></div>
+    <div class="field-group"><label>Polaroid 3</label><button class="upload-btn" id="btn-p3" onclick="document.getElementById('inp-p3').click()">+ Upload photo</button><input type="file" id="inp-p3" accept="image/*" style="display:none"></div>
+    <div class="field-group"><label>Polaroid 4</label><button class="upload-btn" id="btn-p4" onclick="document.getElementById('inp-p4').click()">+ Upload photo</button><input type="file" id="inp-p4" accept="image/*" style="display:none"></div>
+
+    <div class="error-banner" id="error-banner"></div>
+    <div class="save-indicator" id="save-indicator">✓ Draft saved</div>
+    <button class="download-btn" id="submit-btn" onclick="downloadAndSubmit()">⬇ Download &amp; Submit</button>
+    <p style="font-size:10px;color:#b0a89a;text-align:center;line-height:1.5;margin-top:4px;">This saves your page to your device <strong>and</strong> sends it to Profesora Reyes.</p>
+  </div>
+
+  <div class="preview-area">
+    <div class="preview-label">Live preview</div>
+    <div id="canvas-wrap">
+      <canvas id="yb" width="760" height="1075"></canvas>
+    </div>
+  </div>
+</div>
+</div><!-- /editor-screen -->
+
+<script>
+// ── SCREEN NAVIGATION ───────────────────────────────────────
+function onCourseChange(sel) {
+  sel.classList.remove('not-selected');
+  document.getElementById('start-btn').disabled = !sel.value;
+}
+
+function goToEditor() {
+  const course = document.getElementById('course-select').value;
+  if (!course) return;
+  // Show course name in editor
+  document.getElementById('course-display').textContent = course;
+  state.course = course;
+  // Save to localStorage
+  localStorage.setItem('yb_course', course);
+  // Switch screens
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('editor-screen').style.display = 'block';
+  // Trigger render now that editor is visible
+  render();
+}
+
+function goBack() {
+  if (!confirm('Go back to course selection? Your progress will be saved.')) return;
+  document.getElementById('editor-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'flex';
+}
+
+// ── STATE ─────────────────────────────────────────────────────
+const state = {
+  main: null, p1: null, p2: null, p3: null, p4: null,
+  fname: '', lname: '', maintext: '', closing: '',
+  lastGoodMain: '', lastGoodClosing: '',
+  qrImg: null, qrUrl: '', course: ''
+};
+
+// Offscreen canvas used to measure text without affecting main canvas
+const measureCanvas = document.createElement('canvas');
+const mctx = measureCanvas.getContext('2d');
+
+document.fonts.ready.then(() => {
+  loadQR('https://vocaroo.com/sample');
+  // If student already chose a course this session, restore it
+  const savedCourse = localStorage.getItem('yb_course');
+  if (savedCourse) {
+    const sel = document.getElementById('course-select');
+    sel.value = savedCourse;
+    sel.classList.remove('not-selected');
+    document.getElementById('start-btn').disabled = false;
+  }
+});
+
+function loadQR(url) {
+  if (!url) { state.qrImg = null; state.qrUrl = ''; render(); return; }
+  // Use qrserver.com free API — 200px for sharpness, we'll scale it on canvas
+  const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => { state.qrImg = img; state.qrUrl = url; render(); };
+  img.onerror = () => { state.qrImg = null; render(); };
+  img.src = apiUrl;
+}
+
+// QR URL input
+document.getElementById('qrurl').addEventListener('input', e => {
+  const url = e.target.value.trim();
+  if (url.length > 10) loadQR(url);
+  else if (!url) { state.qrImg = null; state.qrUrl = ''; render(); }
+});
+
+function loadImg(file, cb) {
+  const r = new FileReader();
+  r.onload = e => { const i = new Image(); i.onload = () => cb(i); i.src = e.target.result; };
+  r.readAsDataURL(file);
+}
+
+function setupUpload(inputId, btnId, stateKey) {
+  document.getElementById(inputId).addEventListener('change', e => {
+    if (!e.target.files[0]) return;
+    loadImg(e.target.files[0], img => {
+      state[stateKey] = img;
+      document.getElementById(btnId).textContent = '✓ Photo added';
+      document.getElementById(btnId).classList.add('has-img');
+      render();
+    });
+  });
+}
+
+setupUpload('inp-main', 'btn-main', 'main');
+setupUpload('inp-p1', 'btn-p1', 'p1');
+setupUpload('inp-p2', 'btn-p2', 'p2');
+setupUpload('inp-p3', 'btn-p3', 'p3');
+setupUpload('inp-p4', 'btn-p4', 'p4');
+
+['fname', 'lname'].forEach(id => {
+  document.getElementById(id).addEventListener('input', e => {
+    state[id] = e.target.value;
+    render();
+  });
+});
+
+// Block Enter in closing line
+document.getElementById('closing').addEventListener('keydown', e => {
+  if (e.key === 'Enter') e.preventDefault();
+});
+
+// Hard limit helpers — called after each keystroke on maintext and closing.
+// We compute whether the CURRENT value fits; if not, we roll back to the last
+// value that did fit, restoring cursor position as best we can.
+
+function limitMainText(e) {
+  const ta = e.target;
+  const value = ta.value;
+  state.maintext = value;
+
+  // Measure using offscreen canvas
+  mctx.font = `17px 'Lato', sans-serif`;
+  const lines = countLines(mctx, value, getTextWidth(), 25);
+  const max = getMaxLines();
+
+  if (lines > max) {
+    // Roll back to last good value
+    const pos = ta.selectionStart - 1;
+    ta.value = state.lastGoodMain || '';
+    state.maintext = ta.value;
+    // restore cursor
+    const newPos = Math.max(0, pos);
+    ta.setSelectionRange(newPos, newPos);
+    setWarning('maintext', true);
+  } else {
+    state.lastGoodMain = value;
+    setWarning('maintext', false);
+  }
+  render();
+}
+
+function limitClosing(e) {
+  const ta = e.target;
+  const value = ta.value.replace(/\n/g, '');
+  ta.value = value;
+  state.closing = value;
+
+  mctx.font = `bold 17px 'Lato', sans-serif`;
+  const fits = mctx.measureText(value).width <= getClosingTextWidth();
+
+  if (!fits) {
+    const pos = ta.selectionStart - 1;
+    ta.value = state.lastGoodClosing || '';
+    state.closing = ta.value;
+    const newPos = Math.max(0, pos);
+    ta.setSelectionRange(newPos, newPos);
+    setWarning('closing', true);
+  } else {
+    state.lastGoodClosing = value;
+    setWarning('closing', false);
+  }
+  render();
+}
+
+// These geometry helpers mirror the render() calculations so we can
+// check limits before the canvas is drawn.
+function getTextWidth() {
+  const cardX = 40, cardW = 680, MM = 4.25;
+  return cardW - 2 * Math.round(10 * MM);
+}
+
+function getMaxLines() {
+  const MM = 4.25;
+  const cardY = 40, cardH = 995, imgH = 380;
+  const pinkBottom = cardY + cardH;
+  const ph = 168;
+  const pinkY = cardY + imgH;
+  const polCY = pinkY - ph/3 + ph/2;
+  const polBottom = polCY + ph/2 + 18;
+  const lnameY = polBottom + 110;
+  const mainBoxTop = lnameY + Math.round(3 * MM);
+  const closingBoxBottom = pinkBottom - Math.round(6 * MM);
+  const closingBoxHeight = 17 + 10;
+  const closingBoxTop = closingBoxBottom - closingBoxHeight;
+  const mainBoxBottom = closingBoxTop - Math.round(2 * MM);
+  return Math.floor((mainBoxBottom - mainBoxTop) / 25);
+}
+
+function getClosingTextWidth() {
+  const tw = getTextWidth();
+  mctx.font = `bold 17px 'Lato', sans-serif`;
+  return tw - mctx.measureText('TO MY CLASS: ').width;
+}
+
+document.getElementById('maintext').addEventListener('input', limitMainText);
+document.getElementById('closing').addEventListener('input', limitClosing);
+
+// ── Overflow checking ────────────────────────────────────────
+
+// Returns number of lines the text occupies given a max width and font
+function countLines(ctx, text, maxW, lineH) {
+  if (!text) return 0;
+  const paragraphs = text.split('\n');
+  let lines = 0;
+  for (const para of paragraphs) {
+    if (para.trim() === '') { lines++; continue; }
+    const words = para.split(' ');
+    let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) { lines++; line = w; }
+      else line = test;
+    }
+    if (line) lines++;
+  }
+  return lines;
+}
+
+function setWarning(fieldId, visible) {
+  const ta = document.getElementById(fieldId);
+  const msg = document.getElementById(fieldId + '-warning');
+  if (visible) {
+    ta.classList.add('over-limit');
+    msg.classList.add('visible');
+  } else {
+    ta.classList.remove('over-limit');
+    msg.classList.remove('visible');
+  }
+}
+
+// ── Drawing helpers ──────────────────────────────────────────
+
+function drawPolaroid(ctx, img, cx, cy, angle) {
+  const pw = 158, ph = 168, inner = 132, innerH = 128;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  ctx.shadowColor = 'rgba(0,0,0,0.22)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 3;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.roundRect(-pw/2, -ph/2, pw, ph, 3);
+  ctx.fill();
+  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  if (img) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-inner/2, -ph/2+11, inner, innerH);
+    ctx.clip();
+    const scale = Math.max(inner/img.width, innerH/img.height);
+    const sw = img.width*scale, sh = img.height*scale;
+    ctx.drawImage(img, -inner/2-(sw-inner)/2, -ph/2+11-(sh-innerH)/2, sw, sh);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#e0dbd5';
+    ctx.fillRect(-inner/2, -ph/2+11, inner, innerH);
+  }
+  ctx.restore();
+}
+
+// Draw wrapped text clipped to a box. Returns final Y.
+function drawTextBox(ctx, text, x, y, maxW, clipTop, clipBottom, lineH) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, clipTop, maxW, clipBottom - clipTop);
+  ctx.clip();
+  const paragraphs = text.split('\n');
+  let cy = y;
+  for (const para of paragraphs) {
+    if (para.trim() === '') {
+      cy += lineH;
+      if (cy > clipBottom) break;
+      continue;
+    }
+    const words = para.split(' ');
+    let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) {
+        if (cy > clipBottom) { ctx.restore(); return cy; }
+        ctx.fillText(line, x, cy);
+        line = w;
+        cy += lineH;
+      } else {
+        line = test;
+      }
+    }
+    if (line) {
+      if (cy <= clipBottom) ctx.fillText(line, x, cy);
+      cy += lineH;
+    }
+  }
+  ctx.restore();
+  return cy;
+}
+
+// ── Main render ──────────────────────────────────────────────
+
+function render() {
+  const canvas = document.getElementById('yb');
+  const ctx = canvas.getContext('2d');
+  const W = 760, H = 1075;
+  ctx.clearRect(0, 0, W, H);
+
+  const MM = 4.25; // 1mm in canvas px
+
+  // Background
+  ctx.fillStyle = '#f2eeea';
+  ctx.fillRect(0, 0, W, H);
+
+  // Card
+  const cardX = 40, cardY = 40, cardW = W - 80, cardH = H - 80;
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,0.10)';
+  ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 4); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Main photo
+  const imgH = 380;
+  if (state.main) {
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, imgH, 4); ctx.clip();
+    const img = state.main;
+    const scale = Math.max(cardW/img.width, imgH/img.height);
+    const sw = img.width*scale, sh = img.height*scale;
+    ctx.drawImage(img, cardX-(sw-cardW)/2, cardY-(sh-imgH)/2, sw, sh);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#ddd8d2';
+    ctx.fillRect(cardX, cardY, cardW, imgH);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '16px Lato, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Upload main photo', W/2, cardY + imgH/2);
+    ctx.textAlign = 'left';
+  }
+
+  // Pink section
+  const pinkY = cardY + imgH;
+  const pinkBottom = cardY + cardH;
+  ctx.fillStyle = '#e4f5e6';
+  ctx.fillRect(cardX, pinkY, cardW, cardH - (pinkY - cardY) + 6);
+
+  // Polaroids
+  const ph = 168, pw = 158;
+  const polCY = pinkY - ph/3 + ph/2;
+  const margin = 12;
+  const x1 = cardX + margin + pw/2, x4 = cardX + cardW - margin - pw/2;
+  const spanStep = (x4 - x1) / 3;
+  const xs = [x1, x1+spanStep, x1+spanStep*2, x4];
+  const angles = [-0.06, 0.03, -0.03, 0.07];
+  const polImgs = [state.p1, state.p2, state.p3, state.p4];
+  for (let i = 0; i < 4; i++) drawPolaroid(ctx, polImgs[i], xs[i], polCY, angles[i]);
+
+  // Name block
+  const polBottom = polCY + ph/2 + 18;
+  const nameX = cardX + 28;
+  const fnameY = polBottom + 68;
+  const fnameText = state.fname || 'First name';
+
+  ctx.font = "71px 'Great Vibes', cursive";
+  ctx.fillStyle = '#2c2420';
+  ctx.fillText(fnameText, nameX, fnameY);
+
+  const firstCharWidth = ctx.measureText(fnameText[0] || '').width;
+  const secondCharX = nameX + firstCharWidth;
+
+  const lnameText = (state.lname || 'LAST NAME').toUpperCase();
+  ctx.font = "300 27px 'Cormorant Garamond', serif";
+  ctx.fillStyle = '#555250';
+  let lx = secondCharX;
+  const lnameY = polBottom + 110;
+  for (let ch of lnameText) {
+    ctx.fillText(ch, lx, lnameY);
+    lx += ctx.measureText(ch).width + 5;
+  }
+
+  // ── QR code — aligned vertically with name block, 10mm from right card edge
+  const qrSize = Math.round(20 * MM); // 20mm square (doubled)
+  const qrX = cardX + cardW - Math.round(10 * MM) - qrSize; // 10mm from right edge
+  // Vertically centre between fnameY (top of name) and lnameY (baseline of last name)
+  const qrY = fnameY - 55 + Math.round((lnameY - (fnameY - 55)) / 2) - qrSize / 2;
+
+  if (state.qrImg) {
+    // White background behind QR for clarity
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(qrX - 2, qrY - 2, qrSize + 4, qrSize + 4);
+    ctx.drawImage(state.qrImg, qrX, qrY, qrSize, qrSize);
+  } else {
+    // Placeholder dashed box
+    ctx.save();
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(qrX, qrY, qrSize, qrSize);
+    ctx.restore();
+  }
+
+  // ── Text area geometry ────────────────────────────────────
+  const hMargin = Math.round(10 * MM);
+  const textLeft  = cardX + hMargin;
+  const textRight = cardX + cardW - hMargin;
+  const textWidth = textRight - textLeft;
+
+  const mainFontSize    = 17;
+  const closingFontSize = 17;
+  const lineH = 25;
+
+  // Closing box: 6mm above pink bottom
+  const closingBoxBottom = pinkBottom - Math.round(6 * MM);
+  const closingBoxHeight = closingFontSize + 10;
+  const closingBoxTop    = closingBoxBottom - closingBoxHeight;
+
+  // Main text box: 3mm below last name, 2mm above closing box
+  const mainBoxTop    = lnameY + Math.round(3 * MM);
+  const mainBoxBottom = closingBoxTop - Math.round(2 * MM);
+  const maxLines = Math.floor((mainBoxBottom - mainBoxTop) / lineH);
+
+  // ── "TO MY CLASS:" prefix — measure its width so closing text follows it
+  const prefix = 'TO MY CLASS:';
+  ctx.font = `bold ${closingFontSize}px 'Lato', sans-serif`;
+  const prefixWidth = ctx.measureText(prefix + ' ').width;
+  // Available width for the student's closing text
+  const closingTextWidth = textWidth - prefixWidth;
+
+  // ── Overflow checking ─────────────────────────────────────
+  mctx.font = `${mainFontSize}px 'Lato', sans-serif`;
+  const usedLines = countLines(mctx, state.maintext, textWidth, lineH);
+  setWarning('maintext', usedLines > maxLines);
+
+  mctx.font = `bold ${closingFontSize}px 'Lato', sans-serif`;
+  const closingOverflow = mctx.measureText(state.closing).width > closingTextWidth;
+  setWarning('closing', closingOverflow);
+
+  // ── Draw main text ────────────────────────────────────────
+  ctx.font = `${mainFontSize}px 'Lato', sans-serif`;
+  ctx.fillStyle = '#3a3330';
+  if (state.maintext) {
+    drawTextBox(ctx, state.maintext, textLeft, mainBoxTop + mainFontSize, textWidth, mainBoxTop, mainBoxBottom, lineH);
+  } else {
+    ctx.fillStyle = '#bbb';
+    ctx.fillText('Your text goes here...', textLeft, mainBoxTop + mainFontSize);
+  }
+
+  // ── Draw closing line: "TO MY CLASS:" + student text ─────
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(textLeft, closingBoxTop, textWidth, closingBoxHeight);
+  ctx.clip();
+
+  const closingY = closingBoxTop + closingFontSize + 2;
+  ctx.font = `bold ${closingFontSize}px 'Lato', sans-serif`;
+  ctx.fillStyle = '#2c2420';
+
+  // Always draw the prefix
+  ctx.fillText(prefix, textLeft, closingY);
+
+  // Draw student's closing text after the prefix, truncate if needed
+  if (state.closing) {
+    let display = state.closing;
+    while (display.length > 1 && ctx.measureText(display).width > closingTextWidth) {
+      display = display.slice(0, -1);
+    }
+    ctx.fillText(display, textLeft + prefixWidth, closingY);
+  }
+
+  ctx.restore();
+}
+
+// ── CONFIGURATION ───────────────────────────────────────────
+const SUPABASE_URL      = 'https://aezmnloiugbazuvytaem.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlem1ubG9pdWdiYXp1dnl0YWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjM5MDIsImV4cCI6MjA5MjY5OTkwMn0.ED8SXRgOem07zZVx4fvwUIpI3hVk4sCZxH5GoEOq34U';
+const TABLE_NAME        = 'yearbook_submissions';
+// ─────────────────────────────────────────────────────────────
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.classList.add('visible');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showSaved() {
+  const el = document.getElementById('save-indicator');
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), 2000);
+}
+
+async function downloadAndSubmit() {
+  const btn = document.getElementById('submit-btn');
+  document.getElementById('error-banner').classList.remove('visible');
+
+  if (!state.course) { showError('Please select your course before submitting.'); return; }
+  if (!state.fname.trim() || !state.lname.trim()) { showError('Please enter your first and last name.'); return; }
+  if (!state.maintext.trim()) { showError('Please write your main text before submitting.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Submitting…';
+
+  try {
+    // 1. Download image to student's device
+    const canvas = document.getElementById('yb');
+    const imageDataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    const safeName = (state.fname + '_' + state.lname).toLowerCase().replace(/\s+/g,'_');
+    link.download = safeName + '_yearbook.png';
+    link.href = imageDataUrl;
+    link.click();
+
+    // 2. Submit to Supabase
+    const payload = {
+      course:       state.course,
+      fname:        state.fname.trim(),
+      lname:        state.lname.trim(),
+      maintext:     state.maintext.trim(),
+      closing:      state.closing.trim(),
+      qr_url:       state.qrUrl.trim(),
+      page_image:   imageDataUrl,
+      submitted_at: new Date().toISOString()
+    };
+
+    if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(await res.text());
+    }
+
+    // 3. Show success
+    document.getElementById('success-overlay').classList.add('visible');
+
+  } catch (err) {
+    showError('Something went wrong. Your page was still downloaded — please tell Profesora Reyes.');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ Download & Submit';
+  }
+}
+
+render();
+</script>
+</body>
+</html>

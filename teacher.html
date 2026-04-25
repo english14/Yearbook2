@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yearbook Dashboard — Profesora Reyes</title>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:wght@300;400;600&family=Lato:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Lato', sans-serif; background: #1a1614; color: #e8e2dc; min-height: 100vh; }
+
+/* ── LOGIN SCREEN ── */
+#login-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 24px;
+  background: radial-gradient(ellipse at 60% 40%, #2c2218 0%, #1a1614 70%);
+}
+.login-card {
+  background: #fff; border-radius: 16px; padding: 48px 40px;
+  max-width: 360px; width: 100%; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.login-card h1 {
+  font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: 32px;
+  color: #2c2420; margin-bottom: 4px;
+}
+.login-card .subtitle { font-size: 12px; color: #b0a89a; margin-bottom: 28px; }
+.login-card input {
+  width: 100%; padding: 11px 14px; border: 1px solid #e0dbd5; border-radius: 8px;
+  font-family: 'Lato', sans-serif; font-size: 14px; color: #2c2420;
+  background: #faf9f7; outline: none; margin-bottom: 12px;
+  transition: border-color 0.15s;
+}
+.login-card input:focus { border-color: #b5a89a; }
+.login-card button {
+  width: 100%; padding: 12px; background: #2c2420; color: #fff; border: none;
+  border-radius: 8px; font-family: 'Lato', sans-serif; font-size: 14px;
+  font-weight: 700; cursor: pointer; transition: background 0.15s;
+}
+.login-card button:hover { background: #1a1410; }
+.login-error { font-size: 12px; color: #c0392b; margin-top: 8px; display: none; }
+.login-error.visible { display: block; }
+
+/* ── MAIN DASHBOARD ── */
+#dashboard { display: none; }
+.topbar {
+  background: #231e1b; border-bottom: 1px solid #3a3330;
+  padding: 14px 32px; display: flex; align-items: center; justify-content: space-between;
+}
+.topbar-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 300; color: #e8e2dc; }
+.topbar-sub { font-size: 11px; color: #888; margin-top: 2px; }
+.topbar-right { display: flex; gap: 12px; align-items: center; }
+
+.main-area { display: flex; height: calc(100vh - 57px); }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 240px; flex-shrink: 0; background: #201c19; border-right: 1px solid #3a3330;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-section { padding: 16px; border-bottom: 1px solid #3a3330; }
+.sidebar-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #666; margin-bottom: 10px; }
+.course-btn {
+  display: block; width: 100%; text-align: left; padding: 8px 10px;
+  border-radius: 6px; border: none; background: transparent;
+  font-family: 'Lato', sans-serif; font-size: 12px; color: #aaa;
+  cursor: pointer; transition: all 0.15s; margin-bottom: 3px;
+}
+.course-btn:hover { background: #2c2420; color: #e8e2dc; }
+.course-btn.active { background: #3a2e28; color: #e8e2dc; font-weight: 700; }
+.course-btn .count { float: right; background: #4a3e35; color: #aaa; font-size: 10px; padding: 1px 6px; border-radius: 10px; }
+.course-btn.active .count { background: #6a5a50; color: #e8e2dc; }
+
+.sidebar-actions { padding: 16px; display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+.action-btn {
+  width: 100%; padding: 10px 12px; border: none; border-radius: 8px;
+  font-family: 'Lato', sans-serif; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.action-btn.primary { background: #2c6e3f; color: #fff; }
+.action-btn.primary:hover { background: #1e5230; }
+.action-btn.secondary { background: #3a2e28; color: #c8bfb5; border: 1px solid #4a3e35; }
+.action-btn.secondary:hover { background: #4a3e35; color: #e8e2dc; }
+.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── CONTENT AREA ── */
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* TABS */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #3a3330; padding-bottom: 0; }
+.tab-btn {
+  padding: 8px 16px; border: none; background: transparent;
+  font-family: 'Lato', sans-serif; font-size: 12px; font-weight: 700;
+  color: #666; cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: all 0.15s; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.tab-btn:hover { color: #aaa; }
+.tab-btn.active { color: #e8e2dc; border-bottom-color: #c8a060; }
+
+/* STUDENT GRID */
+.student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.student-card {
+  background: #2a2420; border-radius: 10px; overflow: hidden;
+  border: 2px solid transparent; cursor: pointer; transition: all 0.15s;
+  position: relative;
+}
+.student-card:hover { border-color: #6a5a50; transform: translateY(-2px); }
+.student-card.selected { border-color: #c8a060; }
+.student-card img { width: 100%; aspect-ratio: 760/1075; object-fit: cover; display: block; }
+.student-card .card-info { padding: 10px 12px; }
+.student-card .card-name { font-size: 13px; font-weight: 700; color: #e8e2dc; }
+.student-card .card-course { font-size: 11px; color: #888; margin-top: 2px; }
+.student-card .card-date { font-size: 10px; color: #555; margin-top: 4px; }
+.student-card .selected-badge {
+  display: none; position: absolute; top: 8px; right: 8px;
+  background: #c8a060; color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px;
+}
+.student-card.selected .selected-badge { display: block; }
+.student-card .order-badge {
+  display: none; position: absolute; top: 8px; left: 8px;
+  background: #2c6e3f; color: #fff; font-size: 12px; font-weight: 700;
+  width: 24px; height: 24px; border-radius: 50%; align-items: center; justify-content: center;
+}
+.student-card.selected .order-badge { display: flex; }
+.empty-state { text-align: center; padding: 60px 20px; color: #555; }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; line-height: 1.6; }
+
+/* BOOK BUILDER */
+.builder-area { display: flex; gap: 24px; }
+.book-sequence {
+  flex: 1; background: #201c19; border-radius: 10px; padding: 20px;
+  min-height: 400px;
+}
+.book-sequence h3 { font-size: 13px; font-weight: 700; color: #c8bfb5; margin-bottom: 16px; letter-spacing: 0.05em; text-transform: uppercase; }
+.sequence-list { display: flex; flex-direction: column; gap: 8px; }
+.sequence-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  background: #2a2420; border-radius: 8px; border: 1px solid #3a3330;
+}
+.sequence-item .seq-thumb { width: 36px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.sequence-item .seq-thumb-placeholder { width: 36px; height: 50px; background: #3a2e28; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.sequence-item .seq-info { flex: 1; }
+.sequence-item .seq-name { font-size: 12px; font-weight: 700; color: #e8e2dc; }
+.sequence-item .seq-type { font-size: 10px; color: #888; margin-top: 2px; }
+.sequence-item .seq-remove { background: none; border: none; color: #555; cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.15s; }
+.sequence-item .seq-remove:hover { color: #c0392b; }
+.sequence-item .seq-move { background: none; border: none; color: #555; cursor: pointer; font-size: 14px; padding: 2px 4px; transition: color 0.15s; }
+.sequence-item .seq-move:hover { color: #c8a060; }
+.empty-sequence { text-align: center; padding: 40px 20px; color: #444; font-size: 13px; }
+
+/* COVER & FINAL CREATORS */
+.page-creator { background: #201c19; border-radius: 10px; padding: 20px; }
+.page-creator h3 { font-size: 13px; font-weight: 700; color: #c8bfb5; margin-bottom: 16px; letter-spacing: 0.05em; text-transform: uppercase; }
+.creator-fields { display: flex; flex-direction: column; gap: 10px; }
+.creator-fields label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #666; display: block; margin-bottom: 4px; }
+.creator-fields input, .creator-fields textarea, .creator-fields select {
+  width: 100%; padding: 8px 10px; background: #2a2420; border: 1px solid #3a3330;
+  border-radius: 8px; font-family: 'Lato', sans-serif; font-size: 13px; color: #e8e2dc;
+  outline: none; transition: border-color 0.15s;
+}
+.creator-fields input:focus, .creator-fields textarea:focus { border-color: #6a5a50; }
+.creator-fields textarea { resize: vertical; min-height: 70px; }
+.upload-area {
+  border: 1.5px dashed #3a3330; border-radius: 8px; padding: 14px;
+  text-align: center; cursor: pointer; transition: all 0.15s;
+  font-size: 12px; color: #666;
+}
+.upload-area:hover { border-color: #6a5a50; color: #aaa; }
+.upload-area.has-img { border-style: solid; border-color: #7aaa7a; color: #7aaa7a; }
+.mini-preview { width: 100%; height: 180px; object-fit: cover; border-radius: 6px; margin-top: 8px; display: none; }
+.mini-preview.visible { display: block; }
+
+/* PDF PROGRESS */
+.pdf-progress {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  align-items: center; justify-content: center; z-index: 200;
+}
+.pdf-progress.visible { display: flex; }
+.pdf-card { background: #231e1b; border-radius: 16px; padding: 40px; text-align: center; min-width: 320px; border: 1px solid #3a3330; }
+.pdf-card h3 { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: #e8e2dc; margin-bottom: 8px; }
+.pdf-card p { font-size: 13px; color: #888; margin-bottom: 20px; }
+.progress-bar { height: 6px; background: #3a3330; border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: #c8a060; border-radius: 3px; transition: width 0.3s; width: 0%; }
+
+/* TOP BUTTONS */
+.top-btn {
+  padding: 8px 16px; border-radius: 8px; border: none;
+  font-family: 'Lato', sans-serif; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.top-btn.logout { background: #3a2e28; color: #c8bfb5; }
+.top-btn.logout:hover { background: #4a3e35; }
+
+/* CONFIG BANNER */
+.config-banner {
+  background: #3a2e10; border: 1px solid #8a6020; border-radius: 8px;
+  padding: 12px 16px; font-size: 12px; color: #c8a060; line-height: 1.6; margin-bottom: 20px;
+}
+.config-banner code { background: #2a2010; padding: 1px 5px; border-radius: 4px; font-family: monospace; }
+
+/* DELETE btn */
+.delete-btn {
+  width: 100%; padding: 6px; background: none; border: 1px solid #4a2020;
+  border-radius: 6px; color: #c05050; font-family: 'Lato', sans-serif;
+  font-size: 11px; cursor: pointer; margin-top: 6px; transition: all 0.15s;
+}
+.delete-btn:hover { background: #3a1010; }
+/* Cover canvas preview */
+#cover-canvas-wrap { width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.4); margin-bottom: 10px; }
+#cover-canvas-wrap canvas { display: block; width: 100%; height: auto; }
+.color-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.color-swatch { width: 26px; height: 26px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.color-swatch:hover { transform: scale(1.12); }
+.color-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px #c8a060; }
+.color-picker-input { width: 26px; height: 26px; border-radius: 6px; border: 2px solid #3a3330; cursor: pointer; padding: 0; background: none; flex-shrink: 0; }
+.digit-row { display: flex; gap: 6px; align-items: center; margin-bottom: 5px; }
+.digit-label { font-size: 11px; color: #666; width: 36px; flex-shrink: 0; }
+.num-color-dot { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; flex-shrink: 0; }
+.num-color-dot:hover { transform: scale(1.15); }
+.num-color-dot.active { border-color: #fff; box-shadow: 0 0 0 2px #c8a060; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Yearbook<br>Dashboard</h1>
+    <p class="subtitle">Profesora Laura Reyes · Access Panel</p>
+    <input type="password" id="pw-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">Enter</button>
+    <p class="login-error" id="login-error">Incorrect password. Try again.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MAIN DASHBOARD
+═══════════════════════════════════════════════ -->
+<div id="dashboard">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Yearbook Dashboard</div>
+      <div class="topbar-sub">Profesora Laura Reyes</div>
+    </div>
+    <div class="topbar-right">
+      <button class="top-btn logout" onclick="doLogout()">Log out</button>
+    </div>
+  </div>
+
+  <div class="main-area">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Courses</div>
+        <button class="course-btn active" data-course="ALL" onclick="filterCourse('ALL',this)">
+          All submissions <span class="count" id="count-ALL">0</span>
+        </button>
+        <button class="course-btn" data-course="6to 1ra Ciencias Sociales (TT)" onclick="filterCourse('6to 1ra Ciencias Sociales (TT)',this)">
+          6to 1ra CS (TT) <span class="count" id="count-0">0</span>
+        </button>
+        <button class="course-btn" data-course="6to 1ra Ciencias Naturales (TT)" onclick="filterCourse('6to 1ra Ciencias Naturales (TT)',this)">
+          6to 1ra CN (TT) <span class="count" id="count-1">0</span>
+        </button>
+        <button class="course-btn" data-course="6to A Ciencias Sociales (TM)" onclick="filterCourse('6to A Ciencias Sociales (TM)',this)">
+          6to A CS (TM) <span class="count" id="count-2">0</span>
+        </button>
+        <button class="course-btn" data-course="6to B Ciencias Sociales (TM)" onclick="filterCourse('6to B Ciencias Sociales (TM)',this)">
+          6to B CS (TM) <span class="count" id="count-3">0</span>
+        </button>
+        <button class="course-btn" data-course="6to C Ciencias Naturales (TM)" onclick="filterCourse('6to C Ciencias Naturales (TM)',this)">
+          6to C CN (TM) <span class="count" id="count-4">0</span>
+        </button>
+      </div>
+
+      <div class="sidebar-actions">
+        <div style="font-size:10px;color:#555;text-align:center;margin-bottom:4px;" id="selected-count">0 pages selected for book</div>
+        <button class="action-btn primary" id="export-btn" onclick="startExport()" disabled>Export PDF Book</button>
+        <button class="action-btn secondary" onclick="clearSelection()">Clear Selection</button>
+        <button class="action-btn secondary" onclick="loadSubmissions()">↺ Refresh</button>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- CONFIG BANNER (shown until Supabase is set up) -->
+      <div class="config-banner" id="config-banner">
+        <strong>⚙ Setup required:</strong> Open this file and fill in <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> and <code>DASHBOARD_PASSWORD</code> at the top of the script. See the setup instructions included with these files.
+      </div>
+
+      <!-- TABS -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('submissions',this)">Student Pages</button>
+        <button class="tab-btn" onclick="showTab('builder',this)">Book Builder</button>
+      </div>
+
+      <!-- SUBMISSIONS TAB -->
+      <div id="tab-submissions">
+        <div class="student-grid" id="student-grid">
+          <div class="empty-state">
+            <div class="icon">📚</div>
+            <p>No submissions yet.<br>They'll appear here once students submit their pages.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOOK BUILDER TAB -->
+      <div id="tab-builder" style="display:none;">
+        <div class="builder-area">
+
+          <!-- SEQUENCE -->
+          <div style="flex:1;">
+            <div class="book-sequence">
+              <h3>Book sequence <span style="color:#666;font-weight:400;font-size:11px;">(drag to reorder — coming soon)</span></h3>
+              <div class="sequence-list" id="sequence-list">
+                <div class="empty-sequence">Add a cover, select student pages in the Student Pages tab, then add a final page.</div>
+              </div>
+            </div>
+            <div style="margin-top:12px;">
+              <button class="action-btn primary" id="export-btn-2" onclick="startExport()" style="width:100%;" disabled>Export PDF Book ↓</button>
+            </div>
+          </div>
+
+          <!-- COVER + FINAL CREATORS -->
+          <div style="width:260px;display:flex;flex-direction:column;gap:16px;">
+
+            <!-- COVER PAGE -->
+            <div class="page-creator">
+              <h3>Cover Page</h3>
+              <div id="cover-canvas-wrap"><canvas id="cover-canvas" width="1260" height="1820"></canvas></div>
+              <div class="creator-fields">
+                <div><label>Year (4 digits)</label><input type="text" id="cover-year" placeholder="2026" maxlength="4" value="2026" oninput="renderCoverPreview()"></div>
+                <div>
+                  <label>Background colour</label>
+                  <div class="color-row">
+                    <div class="color-swatch active" style="background:#284678" data-bg="#284678" onclick="setBg(this,'#284678')" title="Navy (template default)"></div>
+                    <div class="color-swatch" style="background:#1a1614" data-bg="#1a1614" onclick="setBg(this,'#1a1614')" title="Charcoal"></div>
+                    <div class="color-swatch" style="background:#1a3a2a" data-bg="#1a3a2a" onclick="setBg(this,'#1a3a2a')" title="Forest green"></div>
+                    <div class="color-swatch" style="background:#3a1a1a" data-bg="#3a1a1a" onclick="setBg(this,'#3a1a1a')" title="Burgundy"></div>
+                    <div class="color-swatch" style="background:#2a1a3a" data-bg="#2a1a3a" onclick="setBg(this,'#2a1a3a')" title="Deep purple"></div>
+                    <input type="color" class="color-picker-input" id="bg-custom" value="#284678" oninput="setBgCustom(this)" title="Custom colour">
+                  </div>
+                </div>
+                <div><label>Number colours (one per digit)</label><div id="digit-color-rows"></div></div>
+                <div>
+                  <label>School circular logo</label>
+                  <div class="upload-area" id="logo-upload-area" onclick="document.getElementById('logo-input').click()">+ Upload logo</div>
+                  <input type="file" id="logo-input" accept="image/*" style="display:none">
+                </div>
+                <div><label>Course name (under logo)</label><input type="text" id="cover-course-text" placeholder="6to A · Ciencias Sociales" oninput="renderCoverPreview()"></div>
+                <div><label>Class label</label><input type="text" id="cover-class-label" placeholder="English Class" value="English Class" oninput="renderCoverPreview()"></div>
+                <div><label>Teacher name</label><input type="text" id="cover-teacher" placeholder="Profesora Laura Reyes" value="Profesora Laura Reyes" oninput="renderCoverPreview()"></div>
+                <button class="action-btn secondary" onclick="addCoverToSequence()" style="margin-top:4px;">Add Cover to Book ↑</button>
+              </div>
+            </div>
+
+            <!-- FINAL PAGE -->
+            <div class="page-creator">
+              <h3>Final Page</h3>
+              <div class="creator-fields">
+                <div>
+                  <label>Background colour</label>
+                  <div class="color-row">
+                    <div class="color-swatch active" id="final-bg-swatch-1" style="background:#f2eeea" data-bg="#f2eeea" onclick="setFinalBg(this,'#f2eeea')" title="Warm white"></div>
+                    <div class="color-swatch" id="final-bg-swatch-2" style="background:#284678" data-bg="#284678" onclick="setFinalBg(this,'#284678')" title="Navy (match cover)"></div>
+                    <div class="color-swatch" id="final-bg-swatch-3" style="background:#1a1614" data-bg="#1a1614" onclick="setFinalBg(this,'#1a1614')" title="Charcoal"></div>
+                    <div class="color-swatch" id="final-bg-swatch-4" style="background:#1a3a2a" data-bg="#1a3a2a" onclick="setFinalBg(this,'#1a3a2a')" title="Green"></div>
+                    <input type="color" class="color-picker-input" id="final-bg-custom" value="#f2eeea" oninput="setFinalBgCustom(this)" title="Custom colour">
+                  </div>
+                </div>
+                <div>
+                  <label>Text colour</label>
+                  <div class="color-row">
+                    <div class="color-swatch active" id="final-text-swatch-1" style="background:#2c2420" data-tc="#2c2420" onclick="setFinalText(this,'#2c2420')" title="Dark brown"></div>
+                    <div class="color-swatch" id="final-text-swatch-2" style="background:#ffffff" data-tc="#ffffff" onclick="setFinalText(this,'#ffffff')" title="White"></div>
+                    <div class="color-swatch" id="final-text-swatch-3" style="background:#FFCC66" data-tc="#FFCC66" onclick="setFinalText(this,'#FFCC66')" title="Gold"></div>
+                    <input type="color" class="color-picker-input" id="final-text-custom" value="#2c2420" oninput="setFinalTextCustom(this)" title="Custom colour">
+                  </div>
+                </div>
+                <div>
+                  <label>Closing message</label>
+                  <textarea id="final-message" placeholder="It was a privilege to share this year with all of you. — Profesora Reyes"></textarea>
+                </div>
+                <div>
+                  <label>Year</label>
+                  <input type="text" id="final-year" placeholder="2026">
+                </div>
+                <div>
+                  <label>Background photo (optional)</label>
+                  <div class="upload-area" id="final-upload-area" onclick="document.getElementById('final-photo-input').click()">+ Upload photo</div>
+                  <input type="file" id="final-photo-input" accept="image/*" style="display:none">
+                  <img class="mini-preview" id="final-mini-preview" src="">
+                </div>
+                <button class="action-btn secondary" onclick="addFinalToSequence()" style="margin-top:4px;">Add Final Page to Book</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main-area -->
+</div><!-- /dashboard -->
+
+<!-- PDF PROGRESS -->
+<div class="pdf-progress" id="pdf-progress">
+  <div class="pdf-card">
+    <h3>Building your yearbook…</h3>
+    <p id="pdf-status">Preparing pages…</p>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIGURATION — fill these in
+// ═══════════════════════════════════════════════════════
+const SUPABASE_URL     = 'https://aezmnloiugbazuvytaem.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlem1ubG9pdWdiYXp1dnl0YWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjM5MDIsImV4cCI6MjA5MjY5OTkwMn0.ED8SXRgOem07zZVx4fvwUIpI3hVk4sCZxH5GoEOq34U';
+const TABLE_NAME       = 'yearbook_submissions';
+const DASHBOARD_PASSWORD = 'profe2025';   // ← Change this to your own password!
+// ═══════════════════════════════════════════════════════
+
+let allSubmissions = [];
+let filteredSubmissions = [];
+let selectedIds = new Set();
+let bookSequence = []; // array of {type:'cover'|'page'|'final', data:{}}
+let finalPhotoDataUrl = null;
+const finalState = { bg: '#f2eeea', textColor: '#2c2420' };
+// Cover state
+const coverState = {
+  bg: '#284678',
+  year: '2026',
+  digitColors: ['#FF99CC','#99CCFF','#FF6666','#FFCC66'], // pink,blue,coral,gold — matches template
+  logoImg: null,
+  courseText: '',
+  classLabel: 'English Class',
+  teacher: 'Profesora Laura Reyes'
+};
+const NUM_PALETTE = ['#FF99CC','#99CCFF','#FF6666','#FFCC66','#ffffff','#a0e060','#c060f0','#f08040'];
+let currentCourse = 'ALL';
+
+// ── LOGIN ────────────────────────────────────────────────────
+function doLogin() {
+  const pw = document.getElementById('pw-input').value;
+  if (pw === DASHBOARD_PASSWORD) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+      document.getElementById('config-banner').style.display = 'none';
+    }
+    loadSubmissions();
+  } else {
+    document.getElementById('login-error').classList.add('visible');
+  }
+}
+function doLogout() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('pw-input').value = '';
+}
+document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+// ── TABS ─────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.getElementById('tab-submissions').style.display = name==='submissions' ? 'block' : 'none';
+  document.getElementById('tab-builder').style.display = name==='builder' ? 'block' : 'none';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── LOAD SUBMISSIONS ─────────────────────────────────────────
+async function loadSubmissions() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    // Demo mode with sample data
+    allSubmissions = [
+      { id:1, fname:'Valentina', lname:'Torres', course:'6to A Ciencias Sociales (TM)', submitted_at: new Date().toISOString(), page_image: null },
+      { id:2, fname:'Mateo', lname:'García', course:'6to B Ciencias Sociales (TM)', submitted_at: new Date().toISOString(), page_image: null },
+    ];
+  } else {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=id,fname,lname,course,submitted_at,page_image&order=submitted_at.asc`,
+        { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      allSubmissions = await res.json();
+    } catch(e) {
+      console.error(e);
+      allSubmissions = [];
+    }
+  }
+  updateCounts();
+  filterCourse(currentCourse, document.querySelector(`.course-btn[data-course="${currentCourse}"]`));
+}
+
+function updateCounts() {
+  const courses = [
+    'ALL',
+    '6to 1ra Ciencias Sociales (TT)',
+    '6to 1ra Ciencias Naturales (TT)',
+    '6to A Ciencias Sociales (TM)',
+    '6to B Ciencias Sociales (TM)',
+    '6to C Ciencias Naturales (TM)'
+  ];
+  const ids = ['count-ALL','count-0','count-1','count-2','count-3','count-4'];
+  ids.forEach((id,i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (i === 0) { el.textContent = allSubmissions.length; return; }
+    el.textContent = allSubmissions.filter(s => s.course === courses[i]).length;
+  });
+}
+
+function filterCourse(course, btn) {
+  currentCourse = course;
+  document.querySelectorAll('.course-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  filteredSubmissions = course==='ALL' ? [...allSubmissions] : allSubmissions.filter(s => s.course===course);
+  renderGrid();
+}
+
+// ── STUDENT GRID ─────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('student-grid');
+  if (filteredSubmissions.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">📚</div><p>No submissions yet for this course.</p></div>`;
+    return;
+  }
+  grid.innerHTML = filteredSubmissions.map((s,i) => {
+    const isSelected = selectedIds.has(s.id);
+    const orderNum = isSelected ? [...selectedIds].indexOf(s.id)+1 : '';
+    const date = new Date(s.submitted_at).toLocaleDateString('es-AR');
+    const imgHtml = s.page_image
+      ? `<img src="${s.page_image}" alt="${s.fname}" loading="lazy">`
+      : `<div style="width:100%;aspect-ratio:760/1075;background:#2a2420;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px;">No preview</div>`;
+    return `
+      <div class="student-card ${isSelected?'selected':''}" onclick="toggleSelect(${s.id})" data-id="${s.id}">
+        ${imgHtml}
+        <span class="selected-badge">✓ In book</span>
+        <span class="order-badge">${orderNum}</span>
+        <div class="card-info">
+          <div class="card-name">${s.fname} ${s.lname}</div>
+          <div class="card-course">${s.course}</div>
+          <div class="card-date">Submitted ${date}</div>
+          <button class="delete-btn" onclick="event.stopPropagation();deleteSubmission(${s.id})">Delete submission</button>
+        </div>
+      </div>`;
+  }).join('');
+  updateSelectedCount();
+}
+
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  renderGrid();
+  updateSelectedCount();
+  updateSequenceFromSelection();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  renderGrid();
+  updateSelectedCount();
+  updateSequenceFromSelection();
+}
+
+function updateSelectedCount() {
+  const n = selectedIds.size;
+  document.getElementById('selected-count').textContent = `${n} page${n!==1?'s':''} selected for book`;
+  const canExport = n > 0 || bookSequence.some(i=>i.type==='cover');
+  document.getElementById('export-btn').disabled = !canExport;
+  document.getElementById('export-btn-2').disabled = !canExport;
+}
+
+// ── BOOK SEQUENCE ─────────────────────────────────────────────
+function updateSequenceFromSelection() {
+  // Keep cover and final, replace page items
+  const cover = bookSequence.find(i => i.type==='cover');
+  const final = bookSequence.find(i => i.type==='final');
+  bookSequence = [];
+  if (cover) bookSequence.push(cover);
+  // Add selected pages in selection order
+  [...selectedIds].forEach(id => {
+    const sub = allSubmissions.find(s => s.id===id);
+    if (sub) bookSequence.push({ type:'page', data: sub });
+  });
+  if (final) bookSequence.push(final);
+  renderSequence();
+}
+
+function renderSequence() {
+  const list = document.getElementById('sequence-list');
+  if (bookSequence.length === 0) {
+    list.innerHTML = '<div class="empty-sequence">Add a cover, select student pages in the Student Pages tab, then add a final page.</div>';
+    return;
+  }
+  list.innerHTML = bookSequence.map((item,i) => {
+    const thumb = item.type==='page' && item.data.page_image
+      ? `<img class="seq-thumb" src="${item.data.page_image}">`
+      : `<div class="seq-thumb-placeholder">${item.type==='cover'?'📖':item.type==='final'?'🏁':'📄'}</div>`;
+    const name = item.type==='cover' ? 'Cover Page'
+               : item.type==='final' ? 'Final Page'
+               : `${item.data.fname} ${item.data.lname}`;
+    const sub = item.type==='page' ? item.data.course : item.type==='cover' ? 'Book cover' : 'Closing page';
+    return `
+      <div class="sequence-item">
+        ${thumb}
+        <div class="seq-info">
+          <div class="seq-name">${name}</div>
+          <div class="seq-type">${sub}</div>
+        </div>
+        <button class="seq-move" onclick="moveSeq(${i},-1)" title="Move up" ${i===0?'disabled':''}>▲</button>
+        <button class="seq-move" onclick="moveSeq(${i},1)" title="Move down" ${i===bookSequence.length-1?'disabled':''}>▼</button>
+        <button class="seq-remove" onclick="removeSeq(${i})" title="Remove">×</button>
+      </div>`;
+  }).join('');
+}
+
+function moveSeq(i, dir) {
+  const j = i + dir;
+  if (j<0 || j>=bookSequence.length) return;
+  [bookSequence[i], bookSequence[j]] = [bookSequence[j], bookSequence[i]];
+  renderSequence();
+}
+function removeSeq(i) {
+  const item = bookSequence[i];
+  if (item.type==='page') selectedIds.delete(item.data.id);
+  bookSequence.splice(i,1);
+  renderSequence();
+  renderGrid();
+  updateSelectedCount();
+}
+
+// ── COVER CANVAS RENDERING ──────────────────────────────────────
+
+function initCoverUI() {
+  buildDigitColorRows();
+  renderCoverPreview();
+}
+
+function buildDigitColorRows() {
+  const year = document.getElementById('cover-year').value || '2026';
+  const container = document.getElementById('digit-color-rows');
+  if (!container) return;
+  // Ensure digitColors has 4 entries
+  while (coverState.digitColors.length < 4) coverState.digitColors.push('#ffffff');
+  container.innerHTML = [...year.padEnd(4,'0')].map((d,i) => `
+    <div class="digit-row">
+      <span class="digit-label" style="font-size:18px;font-weight:700;color:${coverState.digitColors[i]}">${d}</span>
+      ${NUM_PALETTE.map(c => `<div class="num-color-dot ${coverState.digitColors[i]===c?'active':''}" style="background:${c}" onclick="setDigitColor(${i},'${c}',this)" title="${c}"></div>`).join('')}
+      <input type="color" class="color-picker-input" value="${coverState.digitColors[i]}" oninput="setDigitColorCustom(${i},this)" title="Custom">
+    </div>`).join('');
+}
+
+function setBg(el, color) {
+  coverState.bg = color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('bg-custom').value = color;
+  renderCoverPreview();
+}
+function setBgCustom(el) {
+  coverState.bg = el.value;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  renderCoverPreview();
+}
+function setDigitColor(idx, color, el) {
+  coverState.digitColors[idx] = color;
+  el.closest('.digit-row').querySelectorAll('.num-color-dot').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  // update label color
+  el.closest('.digit-row').querySelector('.digit-label').style.color = color;
+  renderCoverPreview();
+}
+function setDigitColorCustom(idx, el) {
+  coverState.digitColors[idx] = el.value;
+  el.closest('.digit-row').querySelectorAll('.num-color-dot').forEach(d => d.classList.remove('active'));
+  el.closest('.digit-row').querySelector('.digit-label').style.color = el.value;
+  renderCoverPreview();
+}
+
+// Logo upload
+document.addEventListener('DOMContentLoaded', () => {
+  const logoInput = document.getElementById('logo-input');
+  if (logoInput) {
+    logoInput.addEventListener('change', e => {
+      if (!e.target.files[0]) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          coverState.logoImg = img;
+          document.getElementById('logo-upload-area').textContent = '✓ Logo added';
+          document.getElementById('logo-upload-area').classList.add('has-img');
+          renderCoverPreview();
+        };
+        img.src = ev.target.result;
+      };
+      r.readAsDataURL(e.target.files[0]);
+    });
+  }
+  initCoverUI();
+});
+
+function renderCoverPreview() {
+  // sync state from inputs
+  const yearEl = document.getElementById('cover-year');
+  if (yearEl) coverState.year = yearEl.value || '2026';
+  const ctEl = document.getElementById('cover-course-text');
+  if (ctEl) coverState.courseText = ctEl.value;
+  const clEl = document.getElementById('cover-class-label');
+  if (clEl) coverState.classLabel = clEl.value;
+  const tcEl = document.getElementById('cover-teacher');
+  if (tcEl) coverState.teacher = tcEl.value;
+
+  buildDigitColorRows();
+
+  const canvas = document.getElementById('cover-canvas');
+  if (!canvas) return;
+  drawCoverCanvas(canvas, coverState);
+}
+
+function drawCoverCanvas(canvas, cs) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const year = (cs.year || '2026').padEnd(4,'0').slice(0,4);
+  const c0 = cs.digitColors[0] || '#FF99CC';
+  const c1 = cs.digitColors[1] || '#99CCFF';
+  const c2 = cs.digitColors[2] || '#FF6666';
+  const c3 = cs.digitColors[3] || '#FFCC66';
+
+  ctx.fillStyle = cs.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── BIG numbers ─────────────────────────────────────────────
+  // Calibri Bold — matches the template exactly.
+  // Each digit is visually about 75% of page height tall.
+  // They bleed off the bottom. "6" bleeds off the right.
+  const bigFont = Math.round(H * 0.68);
+  ctx.font = `bold ${bigFont}px 'Trebuchet MS', sans-serif`;
+  ctx.textBaseline = 'top';
+
+  // Big "6": top at 28% H, left at 40% W — drawn FIRST (behind everything)
+  ctx.fillStyle = c3;
+  ctx.fillText(year[3], Math.round(W * 0.40), Math.round(H * 0.28));
+
+  // ── SMALL "20" ───────────────────────────────────────────────
+  // Drawn BEFORE big "2" so the big "2" appears in front of it.
+  const smallFont = Math.round(H * 0.130);
+  ctx.font = `bold ${smallFont}px 'Trebuchet MS', sans-serif`;
+
+  ctx.fillStyle = c0;
+  ctx.fillText(year[0], Math.round(W * 0.0495), Math.round(H * 0.3501));
+
+  const sw0 = ctx.measureText(year[0]).width;
+  ctx.fillStyle = c1;
+  ctx.fillText(year[1], Math.round(W * 0.0495) + Math.round(sw0 * 0.85), Math.round(H * 0.3334));
+
+  // Big "2": drawn LAST among numbers — on top of "6" and small "20"
+  ctx.font = `bold ${bigFont}px 'Trebuchet MS', sans-serif`;
+  ctx.fillStyle = c2;
+  ctx.fillText(year[2], Math.round(W * 0.03), Math.round(H * 0.363));
+
+  // ── YEARBOOK ─────────────────────────────────────────────────
+  // Bottom-right, below the "6" curve, above bottom edge
+  // Top ~87% H, left ~42% W
+  const ybFont = Math.round(H * 0.055);
+  ctx.font = `bold ${ybFont}px 'Trebuchet MS', sans-serif`;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('YEARBOOK', Math.round(W * 0.42), Math.round(H * 0.875));
+
+  // ── LOGO CIRCLE ──────────────────────────────────────────────
+  // Top-right. In PDF: diameter ~28% of page width.
+  // Top edge ~5% H, right edge ~95% W.
+  const circR  = Math.round(W * 0.143);
+  const circCX = W - Math.round(W * 0.0667) - circR;  // right edge = 1.4cm from right
+  const circCY = Math.round(H * 0.05) + circR;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(circCX, circCY, circR, 0, Math.PI * 2);
+  if (cs.logoImg) {
+    ctx.clip();
+    const diam  = circR * 2;
+    const scale = Math.max(diam / cs.logoImg.width, diam / cs.logoImg.height);
+    const sw = cs.logoImg.width * scale, sh = cs.logoImg.height * scale;
+    ctx.drawImage(cs.logoImg, circCX - sw/2, circCY - sh/2, sw, sh);
+  } else {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
+    ctx.fillStyle = cs.bg;
+    ctx.font = `bold ${Math.round(circR * 0.22)}px 'Trebuchet MS', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('YOUR LOGO', circCX, circCY);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+  }
+  ctx.restore();
+
+  // ── TEXT BLOCK top-left ──────────────────────────────────────
+  // SIXTH YEAR: 2.1cm from top = H*0.071, left ~7% W
+  // Course lines below, constrained to left ~55% to clear logo
+
+  const titleFont  = Math.round(H * 0.082);
+  const courseFont = Math.round(H * 0.028);
+  const lineGap    = Math.round(courseFont * 1.55);
+  const margin     = Math.round(W * 0.075);
+
+  ctx.textBaseline = 'top';
+
+  // Title constrained to left 52% to avoid logo
+  let tf = titleFont;
+  ctx.font = `bold ${tf}px 'Trebuchet MS', sans-serif`;
+  while (ctx.measureText('SIXTH YEAR').width > W * 0.52 && tf > 20) {
+    tf--;
+    ctx.font = `bold ${tf}px 'Trebuchet MS', sans-serif`;
+  }
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('SIXTH YEAR', margin, Math.round(H * 0.071));  // 2.1cm from top
+
+  const courseY = Math.round(H * 0.071) + tf + Math.round(tf * 0.18);
+
+  ctx.font = `bold ${courseFont}px 'Trebuchet MS', sans-serif`;
+  let label = (cs.courseText || 'YOUR COURSE').toUpperCase();
+  while (ctx.measureText(label).width > W * 0.55 && label.length > 4) label = label.slice(0,-1);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(label, margin, courseY);
+
+  ctx.font = `italic ${courseFont}px 'Trebuchet MS', sans-serif`;
+  ctx.fillText(cs.classLabel || 'English Class', margin, courseY + lineGap);
+
+  ctx.font = `${courseFont}px 'Trebuchet MS', sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.fillText(cs.teacher || 'Prof. Laura Reyes', margin, courseY + lineGap * 2);
+}
+
+// ── COVER & FINAL CREATORS ────────────────────────────────────
+document.getElementById('final-photo-input').addEventListener('change', e => {
+  if (!e.target.files[0]) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    finalPhotoDataUrl = ev.target.result;
+    document.getElementById('final-upload-area').textContent = '✓ Photo added';
+    document.getElementById('final-upload-area').classList.add('has-img');
+    const prev = document.getElementById('final-mini-preview');
+    prev.src = ev.target.result; prev.classList.add('visible');
+  };
+  r.readAsDataURL(e.target.files[0]);
+});
+
+function addCoverToSequence() {
+  // Snapshot the canvas as the cover image for the PDF
+  const canvas = document.getElementById('cover-canvas');
+  const coverSnapshot = canvas ? canvas.toDataURL('image/png') : null;
+  bookSequence = bookSequence.filter(i => i.type !== 'cover');
+  bookSequence.unshift({
+    type: 'cover',
+    data: {
+      snapshot: coverSnapshot,   // pre-rendered cover image
+      coverState: JSON.parse(JSON.stringify({...coverState, logoImg: null}))
+    }
+  });
+  renderSequence();
+  updateSelectedCount();
+  showTab('builder', document.querySelectorAll('.tab-btn')[1]);
+}
+
+function setFinalBg(el, color) {
+  finalState.bg = color;
+  document.querySelectorAll('[id^="final-bg-swatch"]').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('final-bg-custom').value = color;
+}
+function setFinalBgCustom(el) {
+  finalState.bg = el.value;
+  document.querySelectorAll('[id^="final-bg-swatch"]').forEach(s => s.classList.remove('active'));
+}
+function setFinalText(el, color) {
+  finalState.textColor = color;
+  document.querySelectorAll('[id^="final-text-swatch"]').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('final-text-custom').value = color;
+}
+function setFinalTextCustom(el) {
+  finalState.textColor = el.value;
+  document.querySelectorAll('[id^="final-text-swatch"]').forEach(s => s.classList.remove('active'));
+}
+
+function addFinalToSequence() {
+  bookSequence = bookSequence.filter(i => i.type !== 'final');
+  bookSequence.push({
+    type: 'final',
+    data: {
+      message:   document.getElementById('final-message').value,
+      year:      document.getElementById('final-year').value,
+      photo:     finalPhotoDataUrl,
+      bg:        finalState.bg,
+      textColor: finalState.textColor
+    }
+  });
+  renderSequence();
+  updateSelectedCount();
+  showTab('builder', document.querySelectorAll('.tab-btn')[1]);
+}
+
+// ── DELETE SUBMISSION ─────────────────────────────────────────
+async function deleteSubmission(id) {
+  if (!confirm('Delete this student\'s submission? This cannot be undone.')) return;
+  if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+    } catch(e) { console.error(e); }
+  }
+  allSubmissions = allSubmissions.filter(s => s.id !== id);
+  selectedIds.delete(id);
+  updateCounts();
+  filterCourse(currentCourse, document.querySelector(`.course-btn[data-course="${currentCourse}"]`));
+  updateSequenceFromSelection();
+}
+
+// ── PDF EXPORT ────────────────────────────────────────────────
+async function startExport() {
+  if (bookSequence.length === 0) { alert('Add some pages to the book first.'); return; }
+
+  const progress = document.getElementById('pdf-progress');
+  const statusEl = document.getElementById('pdf-status');
+  const fillEl   = document.getElementById('progress-fill');
+  progress.classList.add('visible');
+
+  const { jsPDF } = window.jspdf;
+  // A4 landscape: 297 x 210mm — but yearbook pages are portrait 760×1075px ratio ≈ A4 portrait
+  const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const PW = 210, PH = 297; // A4 mm
+
+  const total = bookSequence.length;
+
+  try {
+  for (let i = 0; i < total; i++) {
+    const item = bookSequence[i];
+    statusEl.textContent = `Rendering page ${i+1} of ${total}…`;
+    fillEl.style.width = `${Math.round(((i+1)/total)*100)}%`;
+
+    if (i > 0) pdf.addPage();
+
+    if (item.type === 'page') {
+      // Student page — use pre-rendered image
+      if (item.data.page_image) {
+        pdf.addImage(item.data.page_image, 'PNG', 0, 0, PW, PH);
+      } else {
+        // Render on canvas then add
+        const dataUrl = await renderStudentPageToCanvas(item.data);
+        if (dataUrl) pdf.addImage(dataUrl, 'PNG', 0, 0, PW, PH);
+      }
+    } else if (item.type === 'cover') {
+      await renderCoverPage(pdf, item.data, PW, PH);
+    } else if (item.type === 'final') {
+      await renderFinalPage(pdf, item.data, PW, PH);
+    }
+
+    // Give browser a breath between pages
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+    statusEl.textContent = 'Saving PDF…';
+    fillEl.style.width = '100%';
+    await new Promise(r => setTimeout(r, 200));
+
+    const year = document.getElementById('final-year').value || new Date().getFullYear();
+    const course = currentCourse !== 'ALL' ? currentCourse.replace(/[^a-zA-Z0-9]/g,'_') : 'yearbook';
+    pdf.save(`yearbook_${course}_${year}.pdf`);
+
+  } catch(exportErr) {
+    console.error('PDF export error:', exportErr);
+    statusEl.textContent = 'Error — check console for details.';
+    await new Promise(r => setTimeout(r, 2500));
+  } finally {
+    progress.classList.remove('visible');
+  }
+}
+
+// ── RENDER COVER PAGE (on PDF) ───────────────────────────────
+async function renderCoverPage(pdf, data, PW, PH) {
+  if (data.snapshot) {
+    // Use the pre-rendered canvas snapshot directly — pixel-perfect match to preview
+    pdf.addImage(data.snapshot, 'PNG', 0, 0, PW, PH);
+    return;
+  }
+  // Fallback: re-render to an offscreen canvas
+  const offscreen = document.createElement('canvas');
+  offscreen.width = 630; offscreen.height = 891;
+  const cs = data.coverState || coverState;
+  // Restore logoImg if available
+  if (coverState.logoImg) cs.logoImg = coverState.logoImg;
+  drawCoverCanvas(offscreen, cs);
+  pdf.addImage(offscreen.toDataURL('image/png'), 'PNG', 0, 0, PW, PH);
+}
+
+// ── RENDER FINAL PAGE — canvas-based (avoids PDF crash with photos) ──
+async function renderFinalPage(pdf, data, PW, PH) {
+  // Render everything to an offscreen canvas, then add as a single image
+  // This avoids jsPDF opacity/GState crashes when a photo is present
+  const c = document.createElement('canvas');
+  c.width = 1260; c.height = 1820;
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+
+  const bg = data.bg || '#f2eeea';
+  const tc = data.textColor || '#2c2420';
+
+  // Background
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Background photo with overlay
+  if (data.photo) {
+    await new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.max(W / img.width, H / img.height);
+        const sw = img.width * scale, sh = img.height * scale;
+        ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
+        // Semi-transparent colour overlay so text is readable
+        ctx.fillStyle = bg + 'cc'; // bg color at ~80% opacity
+        ctx.fillRect(0, 0, W, H);
+        resolve();
+      };
+      img.onerror = resolve;
+      img.src = data.photo;
+    });
+  }
+
+  // Decorative lines
+  const lineY1 = H * 0.42, lineY2 = H * 0.60;
+  const lx = W * 0.08, rx = W * 0.92;
+  ctx.strokeStyle = tc + '66';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(lx, lineY1); ctx.lineTo(rx, lineY1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lx, lineY2); ctx.lineTo(rx, lineY2); ctx.stroke();
+
+  // Message — centred, italic-style, wrapping
+  const msg = data.message || 'It was a privilege to share this year with you.';
+  const msgFontSize = Math.round(H * 0.038);
+  ctx.font = `italic ${msgFontSize}px 'Lato', Georgia, serif`;
+  ctx.fillStyle = tc;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  // Word-wrap
+  const maxW = W * 0.76;
+  const words = msg.split(' ');
+  let line = '', lines = [];
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  const lineH = msgFontSize * 1.5;
+  const totalH = lines.length * lineH;
+  let ty = H * 0.44;
+  for (const ln of lines) { ctx.fillText(ln, W / 2, ty); ty += lineH; }
+
+  // Year
+  if (data.year) {
+    ctx.font = `900 ${Math.round(H * 0.048)}px 'Lato', sans-serif`;
+    ctx.fillStyle = tc;
+    ctx.fillText(data.year, W / 2, H * 0.62);
+  }
+
+  // Teacher credit at bottom
+  ctx.font = `${Math.round(H * 0.022)}px 'Lato', sans-serif`;
+  ctx.fillStyle = tc + 'aa';
+  ctx.fillText('Profesora Laura Reyes', W / 2, H * 0.92);
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // Add to PDF as image
+  pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, PW, PH);
+}
+
+// ── FALLBACK: render a student page to canvas if no page_image ──
+async function renderStudentPageToCanvas(sub) {
+  // If we have a page_image already, use it. Otherwise return null.
+  return sub.page_image || null;
+}
+</script>
+</body>
+</html>
