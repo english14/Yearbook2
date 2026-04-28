@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="google" content="notranslate">
 <title>Yearbook Page Editor</title>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:wght@300;400&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -120,10 +121,19 @@
   <div class="success-card">
     <div class="check">🎉</div>
     <h2>You're in the yearbook!</h2>
-    <p>Your page has been downloaded <strong>and</strong> submitted to Profesora Reyes.<br>Well done — you made it!</p>
+    <p>Your page has been submitted to Profesora Reyes.<br>
+    <span id="success-note">It was also downloaded to your device.</span><br>Well done — you made it!</p>
     <button onclick="document.getElementById('success-overlay').classList.remove('visible')">Close</button>
   </div>
 </div>
+
+<script>
+  // Personalise success note for iOS (where save is manual)
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+    document.getElementById('success-note').textContent =
+      'A new tab opened — hold the image and tap Save to Photos to keep your copy.';
+  }
+</script>
 
 <!-- ── START SCREEN ── -->
 <div id="start-screen">
@@ -704,16 +714,14 @@ async function downloadAndSubmit() {
   btn.textContent = '⏳ Submitting…';
 
   try {
-    // 1. Download image to student's device
+    // 1. Capture canvas image
     const canvas = document.getElementById('yb');
-    const imageDataUrl = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    const safeName = (state.fname + '_' + state.lname).toLowerCase().replace(/\s+/g,'_');
-    link.download = safeName + '_yearbook.png';
-    link.href = imageDataUrl;
-    link.click();
+    let imageDataUrl = '';
+    try { imageDataUrl = canvas.toDataURL('image/png'); } catch (e) {
+      try { imageDataUrl = canvas.toDataURL('image/jpeg', 0.92); } catch (e2) { /* tainted canvas — submit without image */ }
+    }
 
-    // 2. Submit to Supabase
+    // 2. Submit to Supabase FIRST (before any download attempt that could navigate away on iOS)
     const payload = {
       course:       state.course,
       fname:        state.fname.trim(),
@@ -739,11 +747,36 @@ async function downloadAndSubmit() {
       if (!res.ok) throw new Error(await res.text());
     }
 
-    // 3. Show success
+    // 3. Download image — iOS Safari does not support programmatic data-URL downloads,
+    //    so we open a new tab where the student can long-press → Save to Photos.
+    if (imageDataUrl) {
+      const safeName = (state.fname + '_' + state.lname).toLowerCase().replace(/\s+/g,'_');
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS) {
+        const w = window.open('', '_blank');
+        if (w) {
+          w.document.write(
+            '<html translate="no"><body style="margin:0;background:#111;display:flex;flex-direction:column;align-items:center;padding:16px;font-family:sans-serif">' +
+            '<p style="color:#fff;font-size:15px;text-align:center;margin-bottom:12px;line-height:1.5">' +
+            '👇 <strong>Hold the image</strong> and tap <strong>Save to Photos</strong> to keep your yearbook page.</p>' +
+            '<img src="' + imageDataUrl + '" style="max-width:100%;border-radius:8px">' +
+            '</body></html>'
+          );
+          w.document.close();
+        }
+      } else {
+        const link = document.createElement('a');
+        link.download = safeName + '_yearbook.png';
+        link.href = imageDataUrl;
+        link.click();
+      }
+    }
+
+    // 4. Show success
     document.getElementById('success-overlay').classList.add('visible');
 
   } catch (err) {
-    showError('Something went wrong. Your page was still downloaded — please tell Profesora Reyes.');
+    showError('Something went wrong. Please try again or tell Profesora Reyes.');
     console.error(err);
   } finally {
     btn.disabled = false;
