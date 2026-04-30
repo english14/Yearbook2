@@ -53,6 +53,8 @@
   .rec-btn.stop:not(:disabled):hover { background: #2c2420; }
   .rec-btn.rerecord { background: #f0ece8; color: #555; border: 1px solid #e0dbd5; }
   .rec-btn.rerecord:not(:disabled):hover { background: #e0dbd5; }
+  .rec-btn.done { background: #3a7a3a; color: #fff; }
+  .rec-btn.done:not(:disabled):hover { background: #2c5a2c; }
   .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1s infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
   .rec-timer { font-size: 12px; color: #e74c3c; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 38px; }
@@ -235,6 +237,9 @@
           </div>
           <span class="audio-time" id="audio-time">0:00</span>
           <button class="rec-btn rerecord" id="btn-rerecord" onclick="reRecord()">Re-record</button>
+        </div>
+        <div style="display:none;margin-top:8px;" id="btn-use-wrap">
+          <button class="rec-btn done" id="btn-use" onclick="useRecording()" style="width:100%;justify-content:center;">✓ Use this recording</button>
         </div>
         <div class="rec-status" id="rec-status">Tap Record to start.</div>
       </div>
@@ -773,23 +778,10 @@ async function downloadAndSubmit() {
   btn.textContent = '⏳ Submitting…';
 
   try {
-    // 0. If student used the recorder, upload audio first and generate QR
-    if (audioState.mode === 'recorder' && audioState.blob) {
-      setRecStatus('Uploading audio…', 'uploading');
-      btn.textContent = '⏳ Uploading audio…';
-      const audioUrl = await uploadAudioToSupabase(audioState.blob);
-      audioState.uploadedUrl = audioUrl;
-      // Generate QR from the uploaded URL then re-render before capturing canvas
-      await new Promise((resolve) => {
-        const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(audioUrl)}`;
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => { state.qrImg = img; state.qrUrl = audioUrl; render(); resolve(); };
-        img.onerror = () => { resolve(); }; // continue even if QR fails
-        img.src = apiUrl;
-      });
-      setRecStatus('✓ Audio uploaded.', 'ready');
-      btn.textContent = '⏳ Submitting…';
+    // 0. If recorder was used, make sure they confirmed the recording
+    if (audioState.mode === 'recorder') {
+      if (!audioState.blob) { showError('Please record your audio before submitting.'); btn.disabled = false; btn.textContent = '⬇ Download & Submit'; return; }
+      if (!audioState.uploadedUrl) { showError('Please tap "✓ Use this recording" before submitting.'); btn.disabled = false; btn.textContent = '⬇ Download & Submit'; return; }
     }
 
     // 1. Capture canvas image
@@ -855,7 +847,6 @@ async function downloadAndSubmit() {
   } catch (err) {
     showError('Something went wrong. Please try again or tell Profesora Reyes.');
     console.error(err);
-    if (audioState.mode === 'recorder') setRecStatus('Upload failed. Try again.', 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = '⬇ Download & Submit';
@@ -969,9 +960,10 @@ function onRecordingStop() {
     document.getElementById('audio-progress-bar').style.width = '100%';
   });
   document.getElementById('audio-player-wrap').classList.add('visible');
+  document.getElementById('btn-use-wrap').style.display = 'block';
   document.getElementById('btn-record').disabled = false;
   document.getElementById('rec-timer').style.display = 'none';
-  setRecStatus('✓ Recording ready. Press Play to listen.', 'ready');
+  setRecStatus('Listen back, then tap "Use this recording".', '');
 }
 
 function reRecord() {
@@ -979,6 +971,7 @@ function reRecord() {
   if (audioState.blobUrl) { URL.revokeObjectURL(audioState.blobUrl); audioState.blobUrl = null; }
   audioState.blob = null; audioState.uploadedUrl = null;
   document.getElementById('audio-player-wrap').classList.remove('visible');
+  document.getElementById('btn-use-wrap').style.display = 'none';
   document.getElementById('audio-progress-bar').style.width = '0%';
   document.getElementById('audio-time').textContent = '0:00';
   document.getElementById('play-icon').style.display  = '';
@@ -986,6 +979,28 @@ function reRecord() {
   setAudioMode(null);
   setRecStatus('Tap Record to start.', '');
   state.qrImg = null; state.qrUrl = ''; render();
+}
+
+async function useRecording() {
+  if (!audioState.blob) return;
+  const btn = document.getElementById('btn-use');
+  btn.disabled = true;
+  btn.textContent = '⏳ Uploading…';
+  setRecStatus('Uploading audio…', 'uploading');
+  try {
+    const audioUrl = await uploadAudioToSupabase(audioState.blob);
+    audioState.uploadedUrl = audioUrl;
+    // Generate QR immediately so it appears on the canvas
+    loadQR(audioUrl);
+    btn.textContent = '✓ Audio ready';
+    btn.disabled = true;
+    document.getElementById('btn-rerecord').textContent = 'Re-record';
+    setRecStatus('✓ QR code generated! Fill in the rest and submit.', 'ready');
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '✓ Use this recording';
+    setRecStatus('Upload failed. Check your connection and try again.', 'error');
+  }
 }
 
 function togglePlayPause() {
