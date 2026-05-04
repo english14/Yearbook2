@@ -55,6 +55,10 @@
   .rec-btn.rerecord:not(:disabled):hover { background: #e0dbd5; }
   .rec-btn.done { background: #3a7a3a; color: #fff; }
   .rec-btn.done:not(:disabled):hover { background: #2c5a2c; }
+  .rec-btn.pause { background: #e67e22; color: #fff; }
+  .rec-btn.pause:not(:disabled):hover { background: #ca6f1e; }
+  .rec-btn.resume { background: #e74c3c; color: #fff; }
+  .rec-btn.resume:not(:disabled):hover { background: #c0392b; }
   .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1s infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
   .rec-timer { font-size: 12px; color: #e74c3c; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 38px; }
@@ -224,6 +228,7 @@
           <button class="rec-btn record" id="btn-record" onclick="startRecording()">
             <span class="rec-dot" style="display:none" id="rec-dot"></span> Record
           </button>
+          <button class="rec-btn pause" id="btn-pause" onclick="pauseResumeRecording()" disabled style="display:none">⏸ Pause</button>
           <button class="rec-btn stop" id="btn-stop" onclick="stopRecording()" disabled>Stop</button>
           <span class="rec-timer" id="rec-timer" style="display:none"></span>
         </div>
@@ -867,7 +872,8 @@ const audioState = {
   uploadedUrl: null,
   timerInterval: null,
   elapsed: 0,
-  audioEl: null
+  audioEl: null,
+  paused: false        // true while recording is paused
 };
 
 function setAudioMode(mode) {
@@ -918,7 +924,12 @@ async function startRecording() {
     audioState.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioState.chunks.push(e.data); };
     audioState.mediaRecorder.onstop = onRecordingStop;
     audioState.mediaRecorder.start(200);
+    audioState.paused = false;
     document.getElementById('btn-record').disabled = true;
+    document.getElementById('btn-pause').style.display = 'inline-flex';
+    document.getElementById('btn-pause').disabled = false;
+    document.getElementById('btn-pause').textContent = '⏸ Pause';
+    document.getElementById('btn-pause').className = 'rec-btn pause';
     document.getElementById('rec-dot').style.display = 'inline-block';
     document.getElementById('btn-stop').disabled = false;
     const timer = document.getElementById('rec-timer');
@@ -941,13 +952,47 @@ async function startRecording() {
 function stopRecording() {
   if (!audioState.mediaRecorder) return;
   clearInterval(audioState.timerInterval);
+  // If paused, resume briefly so stop finalizes all chunks cleanly
+  if (audioState.paused && audioState.mediaRecorder.state === 'paused') {
+    audioState.mediaRecorder.resume();
+  }
   audioState.mediaRecorder.stop();
   audioState.mediaRecorder.stream.getTracks().forEach(t => t.stop());
   document.getElementById('btn-stop').disabled = true;
+  document.getElementById('btn-pause').style.display = 'none';
+  document.getElementById('btn-pause').disabled = true;
   document.getElementById('rec-dot').style.display = 'none';
 }
 
-function onRecordingStop() {
+function pauseResumeRecording() {
+  if (!audioState.mediaRecorder) return;
+  if (!audioState.paused) {
+    // Pause
+    audioState.mediaRecorder.pause();
+    audioState.paused = true;
+    clearInterval(audioState.timerInterval);
+    document.getElementById('rec-dot').style.display = 'none';
+    document.getElementById('btn-pause').textContent = '▶ Resume';
+    document.getElementById('btn-pause').className = 'rec-btn resume';
+    setRecStatus('Paused. Tap Resume to keep recording.', '');
+  } else {
+    // Resume
+    audioState.mediaRecorder.resume();
+    audioState.paused = false;
+    document.getElementById('rec-dot').style.display = 'inline-block';
+    document.getElementById('btn-pause').textContent = '⏸ Pause';
+    document.getElementById('btn-pause').className = 'rec-btn pause';
+    audioState.timerInterval = setInterval(() => {
+      audioState.elapsed++;
+      const m = Math.floor(audioState.elapsed/60);
+      const s = String(audioState.elapsed%60).padStart(2,'0');
+      document.getElementById('rec-timer').textContent = `${m}:${s}`;
+    }, 1000);
+    setRecStatus('Recording…', '');
+  }
+}
+
+
   const mimeType = audioState.mediaRecorder.mimeType || 'audio/webm';
   audioState.blob = new Blob(audioState.chunks, { type: mimeType });
   if (audioState.blobUrl) URL.revokeObjectURL(audioState.blobUrl);
@@ -962,6 +1007,8 @@ function onRecordingStop() {
   document.getElementById('audio-player-wrap').classList.add('visible');
   document.getElementById('btn-use-wrap').style.display = 'block';
   document.getElementById('btn-record').disabled = false;
+  document.getElementById('btn-pause').style.display = 'none';
+  document.getElementById('btn-pause').disabled = true;
   document.getElementById('rec-timer').style.display = 'none';
   setRecStatus('Listen back, then tap "Use this recording".', '');
 }
@@ -972,6 +1019,10 @@ function reRecord() {
   audioState.blob = null; audioState.uploadedUrl = null;
   document.getElementById('audio-player-wrap').classList.remove('visible');
   document.getElementById('btn-use-wrap').style.display = 'none';
+  document.getElementById('btn-pause').style.display = 'none';
+  document.getElementById('btn-pause').disabled = true;
+  document.getElementById('btn-pause').textContent = '⏸ Pause';
+  document.getElementById('btn-pause').className = 'rec-btn pause';
   document.getElementById('audio-progress-bar').style.width = '0%';
   document.getElementById('audio-time').textContent = '0:00';
   document.getElementById('play-icon').style.display  = '';
