@@ -526,7 +526,7 @@ async function loadSubmissions() {
   } else {
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=id,fname,lname,course,submitted_at,page_image,qr_url&order=submitted_at.asc`,
+        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=id,fname,lname,course,submitted_at,qr_url&order=submitted_at.asc`,
         { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
       );
       if (!res.ok) throw new Error(await res.text());
@@ -579,9 +579,7 @@ function renderGrid() {
     const isSelected = selectedIds.has(s.id);
     const orderNum = isSelected ? [...selectedIds].indexOf(s.id)+1 : '';
     const date = new Date(s.submitted_at).toLocaleDateString('es-AR');
-    const imgHtml = s.page_image
-      ? `<img src="${s.page_image}" alt="${s.fname}" loading="lazy">`
-      : `<div style="width:100%;aspect-ratio:760/1075;background:#2a2420;display:flex;align-items:center;justify-content:center;color:#555;font-size:12px;">No preview</div>`;
+    const imgHtml = `<div class="lazy-img-wrap" data-id="${s.id}" style="width:100%;aspect-ratio:760/1075;background:#2a2420;display:flex;align-items:center;justify-content:center;color:#555;font-size:11px;">Loading…</div>`;
     return `
       <div class="student-card ${isSelected?'selected':''}" onclick="toggleSelect(${s.id})" data-id="${s.id}">
         ${imgHtml}
@@ -608,6 +606,41 @@ function renderGrid() {
       </div>`;
   }).join('');
   updateSelectedCount();
+  lazyLoadImages();
+}
+
+function lazyLoadImages() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  const wraps = document.querySelectorAll('.lazy-img-wrap');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const id = el.dataset.id;
+      if (el.dataset.loading) return;
+      el.dataset.loading = '1';
+      observer.unobserve(el);
+      fetch(
+        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=page_image&id=eq.${id}`,
+        { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+      )
+      .then(r => r.json())
+      .then(data => {
+        const img_data = data[0]?.page_image;
+        if (img_data) {
+          const img = document.createElement('img');
+          img.src = img_data;
+          img.style.width = '100%';
+          img.style.display = 'block';
+          el.replaceWith(img);
+        } else {
+          el.textContent = 'No preview';
+        }
+      })
+      .catch(() => { el.textContent = 'No preview'; });
+    });
+  }, { rootMargin: '200px' });
+  wraps.forEach(w => observer.observe(w));
 }
 
 function toggleSelect(id) {
